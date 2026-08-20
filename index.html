@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#efebe1" />
+    <title>Noureddine El Mobaraki — Front-end engineer, Casablanca</title>
+    <meta
+      name="description"
+      content="Front-end engineer in Casablanca. Three live products: NL, a six-theme music and media platform; PRISM, configurable art commerce; MOMENTO, a trilingual watch boutique. 101,416 lines and 302 automated tests, shipped and maintained."
+    />
+    <link rel="canonical" href="https://noureddinelmobaraki-web.github.io/portfolio/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Noureddine El Mobaraki — Front-end engineer" />
+    <meta
+      property="og:description"
+      content="Three live products, designed and engineered end to end. Front-end engineer in Casablanca, open to team roles and contract work."
+    />
+    <meta property="og:url" content="https://noureddinelmobaraki-web.github.io/portfolio/" />
+    <meta
+      property="og:image"
+      content="https://noureddinelmobaraki-web.github.io/nl-audio-cdn/Mee.webp"
+    />
+    <meta property="og:image:alt" content="Noureddine El Mobaraki" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:image"
+      content="https://noureddinelmobaraki-web.github.io/nl-audio-cdn/Mee.webp"
+    />
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+
+    <!-- Fonts: preconnect first, then one stylesheet request. display=swap so
+         text is readable before the webfont lands. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,300..800&family=Fraunces:ital,opsz,wght@0,9..144,400..700;1,9..144,400..600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      (function() {
+        try {
+          var originalFetchDescriptor = Object.getOwnPropertyDescriptor(window, 'fetch') || Object.getOwnPropertyDescriptor(Window.prototype, 'fetch');
+          if (originalFetchDescriptor && !originalFetchDescriptor.set) {
+            var currentValue = originalFetchDescriptor.get ? originalFetchDescriptor.get.call(window) : originalFetchDescriptor.value;
+            Object.defineProperty(window, 'fetch', {
+              get: function() { return currentValue; },
+              set: function(val) { currentValue = val; },
+              configurable: true,
+              enumerable: true
+            });
+          }
+        } catch (e) {}
+      })();
+    </script>
+
+    <!-- The hero image and portrait live on another origin; warm it up early. -->
+    <link rel="preconnect" href="https://noureddinelmobaraki-web.github.io" />
+
+    <!-- The first window's poster. Fetched with the document instead of after
+         the lazy loader decides it is nearly visible. This href follows
+         DISPLAY_ORDER in src/data/projects.ts: MOMENTO is the first window, so
+         MOMENTO's poster is the one worth a high-priority preload. NL's own
+         poster is now third and is fetched lazily like the second one. -->
+    <link
+      rel="preload"
+      as="image"
+      href="https://noureddinelmobaraki-web.github.io/nl-audio-cdn/BG.SITES/2.png"
+      fetchpriority="high"
+    />
+
+    <!-- The two other project origins are only contacted if a live preview is
+         actually armed, so they get a DNS lookup and nothing more. -->
+    <link rel="dns-prefetch" href="https://prismmoo.github.io" />
+    <link rel="dns-prefetch" href="https://momentowatch.github.io" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Person",
+        "name": "Noureddine El Mobaraki",
+        "jobTitle": "Front-end engineer",
+        "email": "mailto:noureddinelmobaraki@gmail.com",
+        "telephone": "+212612806932",
+        "url": "https://noureddinelmobaraki-web.github.io/portfolio/",
+        "image": "https://noureddinelmobaraki-web.github.io/nl-audio-cdn/Mee.webp",
+        "address": {
+          "@type": "PostalAddress",
+          "addressLocality": "Casablanca",
+          "addressCountry": "MA"
+        },
+        "knowsLanguage": ["Arabic", "Tamazight", "English", "French"],
+        "knowsAbout": [
+          "React",
+          "TypeScript",
+          "Vite",
+          "GSAP",
+          "WebGL",
+          "Web Audio API",
+          "Accessibility",
+          "Performance"
+        ],
+        "sameAs": [
+          "https://github.com/noureddinelmobaraki-web",
+          "https://www.instagram.com/nordine_el_mobaraki/",
+          "https://www.youtube.com/@nourdin_el_mobaraki",
+          "https://t.me/noureddin_el_mobaraki"
+        ]
+      }
+    </script>
+  </head>
+  <body>
+    <!-- Painted before React boots so the first frame is never white. -->
+    <div id="root"></div>
+    <noscript>
+      <div style="padding: 24px; color: #f3f2ee; font-family: sans-serif">
+        This portfolio needs JavaScript. The three live products are at
+        <a href="https://noureddinelmobaraki-web.github.io/NL/">NL</a>,
+        <a href="https://prismmoo.github.io/ma/">PRISM</a> and
+        <a href="https://momentowatch.github.io/ma/">MOMENTO</a>.
+      </div>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

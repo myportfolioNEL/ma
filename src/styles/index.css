@@ -1,0 +1,4 @@
+/* Global styles only: design tokens and the element reset.
+   Layout lives in desktop.css or mobile.css, imported by its own build. */
+@import "./tokens.css";
+@import "./base.css";

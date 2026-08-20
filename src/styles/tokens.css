@@ -1,0 +1,640 @@
+/* ==========================================================================
+   tokens.css — the single source of truth for every visual constant.
+   Nothing below this file may hardcode a colour, a size, or an easing.
+
+   THEME: "Atelier" — warm bone paper, espresso ink, one vermilion accent.
+   The old theme was a dark studio with an acid-lime accent: the single most
+   copied combination on the web right now. This one goes the other way. It
+   reads like a printed portfolio: warm neutral stock, near-black warm ink,
+   and one saturated colour used only where it means something.
+
+   Naming: --surface variants are what you look at, --text variants are what you read. The
+   older --ink and --paper names are kept as aliases so no component has to
+   change to follow a repaint; they simply point at the new palette.
+
+   Two scales live here, not one. The desktop scale is the default; the block
+   further down re-declares the same tokens for small screens, so a phone gets
+   its own rhythm, its own type sizes and its own header height instead of a
+   shrunken copy of the desktop layout.
+   ========================================================================== */
+
+:root {
+  /* --- Surfaces (warm paper stock) --------------------------------------- */
+  --surface: #efebe1;
+  --surface-2: #e8e2d5;
+  --surface-3: #ded6c5;
+  --surface-4: #d2c9b5;
+  /* Translucent paper, for anything that floats over content. */
+  --surface-glass: rgba(239, 235, 225, 0.78);
+  --surface-glass-strong: rgba(239, 235, 225, 0.92);
+
+  /* --- Text (warm espresso, never pure black) ---------------------------- */
+  --text: #17140f;
+  --text-dim: rgba(23, 20, 15, 0.66);
+  --text-faint: rgba(23, 20, 15, 0.42);
+  --text-ghost: rgba(23, 20, 15, 0.14);
+
+  /* --- Inverted surfaces -------------------------------------------------
+     Overlays and the preloader are cut from the opposite material. A window
+     that opens over the page should feel like a different object, not a
+     lighter rectangle of the same one. Any subtree can switch material by
+     re-declaring the alias tokens; see .case in sections.css.              */
+  --invert: #17140f;
+  --invert-2: #221d16;
+  --invert-3: #2e2820;
+  --on-invert: #f2ede2;
+  --on-invert-dim: rgba(242, 237, 226, 0.68);
+  --on-invert-faint: rgba(242, 237, 226, 0.42);
+  --invert-line: rgba(242, 237, 226, 0.16);
+  --invert-glass: rgba(23, 20, 15, 0.72);
+
+  /* --- Accent (vermilion — print ink, not neon) -------------------------- */
+  --accent: #e2431b;
+  --accent-2: #b93312;
+  --accent-ink: #fdf5ef;
+  --accent-soft: rgba(226, 67, 27, 0.12);
+  --accent-line: rgba(226, 67, 27, 0.4);
+  --accent-rgb: 226, 67, 27;
+
+  /* --- Compatibility aliases ---------------------------------------------
+     The rest of the stylesheet still speaks in ink/paper. Repointing the
+     aliases repaints the whole site from this one place.                   */
+  --ink: var(--surface);
+  --ink-2: var(--surface-2);
+  --ink-3: var(--surface-3);
+  --ink-4: var(--surface-4);
+  --paper: var(--text);
+  --paper-dim: var(--text-dim);
+  --paper-faint: var(--text-faint);
+  --paper-ghost: var(--text-ghost);
+
+  /* --- Lines -------------------------------------------------------------- */
+  --line: rgba(23, 20, 15, 0.14);
+  --line-mid: rgba(23, 20, 15, 0.24);
+  --line-strong: rgba(23, 20, 15, 0.44);
+
+  /* --- Type families ------------------------------------------------------
+     Bricolage Grotesque is a variable grotesque with width and optical-size
+     axes, so headlines can be genuinely wide and body text stays quiet — and
+     its axes are what the pointer distortion animates. Fraunces supplies the
+     italic display voice, IBM Plex Mono the labels.                        */
+  --font-sans: "Bricolage Grotesque", "Inter Tight", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Fraunces", "Instrument Serif", Georgia, "Times New Roman",
+    serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* --- Type scale (fluid, clamped so it never breaks a layout) ---------- */
+  --t-display: clamp(3.2rem, 11.8vw, 10.2rem);
+  --t-h1: clamp(2.4rem, 6.4vw, 5.2rem);
+  --t-h2: clamp(1.9rem, 4vw, 3rem);
+  --t-h3: clamp(1.3rem, 2.1vw, 1.7rem);
+  --t-lead: clamp(1.05rem, 1.5vw, 1.28rem);
+  --t-body: 1rem;
+  --t-small: 0.875rem;
+  --t-mono: 0.75rem;
+
+  --lh-display: 0.88;
+  --lh-tight: 1.05;
+  --lh-body: 1.62;
+
+  --ls-display: -0.032em;
+  --ls-tight: -0.018em;
+  --ls-mono: 0.12em;
+
+  /* Variable-font axes, so weight and width are tokens like everything else. */
+  --vf-display: "wght" 620, "wdth" 96, "opsz" 96;
+  --vf-heading: "wght" 560, "wdth" 98, "opsz" 48;
+  --vf-body: "wght" 400, "wdth" 100, "opsz" 14;
+
+  /* --- Spacing scale (4 / 8 base) --------------------------------------- */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --s-10: 128px;
+  --s-11: 160px;
+
+  /* --- Layout ------------------------------------------------------------ */
+  --maxw: 1280px;
+  --maxw-text: 68ch;
+  --gutter: clamp(20px, 4.5vw, 56px);
+  --section-y: clamp(var(--s-9), 13vh, var(--s-11));
+  --header-h: 68px;
+  /* Squarer than before. Paper is cut, not rounded. */
+  --radius: 3px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
+  /* --- Touch layout ------------------------------------------------------
+     --nav-h   height of the mobile tab bar; 0 on desktop, where it is hidden.
+     --safe-b  the iOS home-indicator inset. Every bottom-anchored element adds
+               it, so nothing sits under the system gesture area.
+     --tap     minimum hit area for anything a thumb has to press.            */
+  --nav-h: 0px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --tap: 48px;
+
+  /* --- Pointer field ------------------------------------------------------
+     There is no cursor lens any more, and nothing on this site is drawn at
+     the pointer's position. What remains is the field itself: the WebGL
+     backdrop, the letters, the buttons and the headings all read the same
+     disturbance, which is why they behave like one material. */
+
+  /* --- Motion ------------------------------------------------------------ */
+  /* ROUND 28: منحنى من طباع power3: حازم في البداية، وبلا ذيل يتمايل في الأخير.
+     وهو مطابق لـ EASE.out في lib/motion.ts حتى تبقى الورقة والشيفرة تتحرّكان معاً. */
+  --e-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --e-in-out: cubic-bezier(0.66, 0, 0.34, 1);
+  --e-soft: cubic-bezier(0.33, 1, 0.68, 1);
+  /* ROUND 28: السُّلَّم يُقصَّر بمقدار الثلث تقريباً. النسب بينها محفوظة،
+     فالإيقاع يبقى هو نفسه ولا يصير عشوائياً. */
+  --d-1: 0.12s;
+  --d-2: 0.2s;
+  --d-3: 0.36s;
+  --d-4: 0.7s;
+
+  /* --- Elevation (borders first, shadow only when needed) ---------------
+     Warm shadows. A neutral black shadow on warm paper looks like dirt.    */
+  --shadow: 0 1px 2px rgba(23, 20, 15, 0.06), 0 22px 54px rgba(23, 20, 15, 0.14);
+  --shadow-sheet: 0 -18px 60px rgba(23, 20, 15, 0.22);
+
+  /* --- Z layers ---------------------------------------------------------- */
+  --z-backdrop: 0;
+  --z-content: 1;
+  --z-rail: 40;
+  --z-header: 50;
+  --z-overlay: 70;
+  --z-preloader: 100;
+
+  color-scheme: light;
+  accent-color: var(--accent);
+}
+
+/* ==========================================================================
+   Phone scale. Everything below 760px is a different product, not a smaller
+   one: shorter header, tighter vertical rhythm, a type ramp that fits a 390px
+   viewport, and room reserved at the bottom for the tab bar.
+   ========================================================================== */
+@media (max-width: 760px) {
+  :root {
+    --t-display: clamp(2.7rem, 13vw, 4.5rem);
+    --t-h1: clamp(2rem, 8.5vw, 2.9rem);
+    --t-h2: clamp(1.6rem, 6.6vw, 2.1rem);
+    --t-h3: 1.18rem;
+    --t-lead: 1.02rem;
+    --t-body: 1rem;
+    --t-small: 0.9rem;
+
+    --lh-display: 0.94;
+    --ls-display: -0.024em;
+    --vf-display: "wght" 640, "wdth" 92, "opsz" 72;
+
+    --gutter: 18px;
+    --section-y: clamp(var(--s-8), 9vh, var(--s-9));
+    --header-h: 56px;
+    --nav-h: 64px;
+    --radius-lg: 14px;
+  }
+}
+
+/* Very small phones (SE class). One more step down so nothing clips. */
+@media (max-width: 380px) {
+  :root {
+    --t-display: 2.45rem;
+    --gutter: 15px;
+  }
+}
+
+/* Respect the user's system preference for stillness at the token level so
+   every consumer inherits it without extra code. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --d-1: 0.01s;
+    --d-2: 0.01s;
+    --d-3: 0.01s;
+    --d-4: 0.01s;
+  }
+}
+/* ==========================================================================
+   ROUND 20 — typed custom properties
+
+   --e is the local energy of the liquid field at one element, 0 to 1, written
+   by useLiquidDrift. --l is one letter's heat, 0 to 1, written by the letter
+   engine. Both are written in quantised steps so the main thread is not asked
+   to re-rasterise on every frame.
+
+   Registering them with @property does two things that matter here:
+     1. it gives them a type, so the browser can interpolate them, which turns
+        those quantised steps into a smooth ramp for free, on the compositor,
+        with no extra JavaScript;
+     2. it gives them an initial value, so any element that reads var(--e)
+        before the hook has ever written to it gets 0 rather than nothing —
+        which is why the resting appearance is exact rather than approximate.
+   ========================================================================== */
+
+@property --e {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --l {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+/* The one behavioural rule allowed in this file, because these class names are
+   shared by both builds: energy arrives as a ramp, not as stairs. */
+.hero__float,
+.hero__leadfloat,
+.win__float,
+.win__art,
+.card__art {
+  transition: --e 0.18s linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero__float,
+  .hero__leadfloat,
+  .win__float,
+  .win__art,
+  .card__art {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   ROUND 23 - the royal thread
+
+   One palette read as a single thread, in three materials:
+
+     ornamental red texture   the ground. Dark damask red, built from
+                              gradients only. No image file: one paint, zero
+                              requests, and it stays crisp on any density.
+     royal red                the body. Where the thread is thickest.
+     royal gold               the filament. Never a large area, and never
+                              body text on paper, where gold measures about
+                              2:1 against bone and cannot be read. Gold is a
+                              hairline, an ornament, or text ON the red
+                              ground, where it measures better than 7:1.
+
+   Nothing below this line is allowed to be hardcoded in a component.
+   ========================================================================== */
+
+:root {
+  /* --- the three colours ------------------------------------------------- */
+  --orn-ink: #250508;
+  --orn-red: #4a0a0e;
+  --rr: #6d0f16;
+  --rr-lit: #8f1a22;
+  --rr-rgb: 109, 15, 22;
+
+  --gold-deep: #8a6a25;
+  --gold: #c9a24a;
+  --gold-lit: #f0dca6;
+  --gold-rgb: 201, 162, 74;
+
+  /* Text that sits on any royal ground. Warm, not white: white on oxblood
+     vibrates. */
+  --on-royal: #f7ecd8;
+  --on-royal-dim: rgba(247, 236, 216, 0.72);
+
+  /* --- the thread --------------------------------------------------------
+     One gradient, used as a material by buttons, the mail plate and the
+     preloader. It is wider than the box it fills (--thread-size) so the
+     visible slice can travel with --e without ever showing a hard edge. */
+  --thread: linear-gradient(
+    102deg,
+    var(--orn-ink) 0%,
+    var(--orn-red) 16%,
+    var(--rr) 36%,
+    var(--rr-lit) 52%,
+    var(--gold-deep) 72%,
+    var(--gold) 88%,
+    var(--gold-lit) 100%
+  );
+  --thread-size: 260% 100%;
+
+  /* The same thread as a one-pixel rule: ink at the left, gold at the right,
+     fading out rather than stopping. */
+  --thread-line: linear-gradient(
+    90deg,
+    var(--rr) 0%,
+    var(--rr-lit) 34%,
+    var(--gold-deep) 62%,
+    var(--gold) 82%,
+    transparent 100%
+  );
+
+  /* --- the ornamental texture -------------------------------------------
+     Five layers, cheapest last:
+       1-2  two small gold points, the diaper motif of the reference
+       3    a light 45 degree hatch, the sheen of woven cloth
+       4    a dark counter-hatch, the depth between the threads
+       5    the ground itself, lit from the top
+     --orn-tile is the repeat of the weave; the phone block below makes it
+     smaller, because the same tile at phone scale reads as noise.        */
+  --orn-tile: 26px;
+  --orn-texture:
+    radial-gradient(
+      circle at 50% 14%,
+      rgba(var(--gold-rgb), 0.16) 0 1.1px,
+      transparent 1.7px
+    ),
+    radial-gradient(
+      circle at 0% 52%,
+      rgba(var(--gold-rgb), 0.1) 0 1px,
+      transparent 1.6px
+    ),
+    repeating-linear-gradient(
+      45deg,
+      rgba(240, 220, 166, 0.04) 0 1px,
+      transparent 1px var(--orn-tile)
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      rgba(20, 3, 5, 0.18) 0 1px,
+      transparent 1px var(--orn-tile)
+    ),
+    radial-gradient(
+      130% 130% at 50% 0%,
+      var(--rr) 0%,
+      var(--orn-red) 48%,
+      var(--orn-ink) 100%
+    );
+  --orn-size:
+    var(--orn-tile) var(--orn-tile), var(--orn-tile) var(--orn-tile),
+    auto, auto, auto;
+
+  /* --- ornament details -------------------------------------------------- */
+  --gold-hair: rgba(var(--gold-rgb), 0.55);
+  --gold-hair-soft: rgba(var(--gold-rgb), 0.26);
+  /* The gilt edge on a heading. Two shadows, no blur radius on the first, so
+     it reads as gold leaf on the letter rather than as a glow behind it. */
+  --gild: 0 1px 0 rgba(var(--gold-rgb), 0.5), 0 0 12px rgba(var(--gold-rgb), 0.14);
+  --royal-shadow: 0 1px 2px rgba(37, 5, 8, 0.28), 0 14px 34px rgba(37, 5, 8, 0.22);
+
+  /* --- waiting -----------------------------------------------------------
+     Shared by the loader in both builds. Duplicated nowhere else. */
+  --ld-speed: 1.5s;
+  --ld-w: 96px;
+  --ld-h: 34px;
+}
+
+/* Phone: a tighter weave and a smaller loader. Same palette, own scale. */
+@media (max-width: 760px) {
+  :root {
+    --orn-tile: 20px;
+    --ld-w: 76px;
+    --ld-h: 28px;
+    --ld-speed: 1.35s;
+  }
+}
+
+/* Stillness: the thread stops travelling and the gilt stops glowing. Both
+   states remain fully visible, because they carry meaning, not decoration. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --gild: 0 1px 0 rgba(var(--gold-rgb), 0.5);
+  }
+}
+
+/* ==========================================================================
+   ROUND 24 - the three aliases that were never declared
+
+   These are not new design decisions. desktop.css and mobile.css have always
+   asked for them; tokens.css never answered, so every heading fell back to
+   the body face and every plate label fell back to the inherited size.
+   ========================================================================== */
+:root {
+  --font-display: var(--font-sans);
+  --fs-xs: var(--t-mono);
+  --fs-sm: var(--t-small);
+}
+
+/* ==========================================================================
+   ROUND 25 — مادة الزر: زجاج مضبّب + خيط ملكي + دخان
+   كل ما تحته يُقرأ من desktop.css و mobile.css و LangSwitch.
+   ========================================================================== */
+
+:root {
+  /* الشكل. نصف قطر واحد لكل أزرار الموقع — هذا هو "الشكل العام". */
+  --btn-r: 13px;
+  --btn-r-sm: 10px;
+
+  /* الزجاج. ثابت، لا يُحرَّك أبداً. */
+  --btn-glass: blur(9px) saturate(126%);
+  --btn-glass-strong: blur(14px) saturate(130%);
+
+  /* الهالة الضبابية حول الزر. */
+  --btn-fog-blur: 11px;
+  --btn-fog:
+    radial-gradient(68% 120% at 24% 108%, rgba(var(--rr-rgb), calc(0.20 + var(--e) * 0.34)), transparent 68%),
+    radial-gradient(54% 120% at 82% -18%, rgba(var(--gold-rgb), calc(0.14 + var(--e) * 0.26)), transparent 66%);
+
+  /* حجاب الورق فوق الخيط: كم يبقى من لون الصفحة فوق التدرّج الملكي. */
+  --btn-veil: 0.86;
+
+  /* الدخان: رماد دافئ يُرى فوق الورق وفوق الأحمر الملكي معاً. */
+  --smoke:
+    radial-gradient(circle at 50% 55%,
+      rgba(247, 236, 216, 0.78),
+      rgba(var(--gold-rgb), 0.46) 46%,
+      rgba(var(--rr-rgb), 0.30) 70%,
+      transparent 78%);
+  --smoke-blur: 9px;
+  --smoke-time: 0.66s;
+
+  /* اتجاه الكتابة كرقم: 1 لـ LTR و -1 لـ RTL. يكتبه LocaleProvider. */
+  --dir: 1;
+}
+
+:root:lang(ar) {
+  --font-sans: "IBM Plex Sans Arabic", "Bricolage Grotesque", system-ui, sans-serif;
+  --font-display: "IBM Plex Sans Arabic", "Fraunces", Georgia, serif;
+}
+
+/* الاسم يبقى على خط العرض اللاتيني في كل اللغات: هو اسم عَلَم لاتيني،
+   وتبديل خطه تحت :lang(ar) هو ما جعل صناديق الحروف المجمّدة تتراكب. */
+:root:lang(ar) .ln,
+:root:lang(ar) .ln__word,
+:root:lang(ar) .ln__char {
+  font-family: var(--font-display);
+}
+
+/* ==========================================================================
+   ROUND 26 · رموز عناصر التحكّم
+
+   ثلاثة مقاييس، وكثافتان، ولا شيء آخر. كل زر في الموقع يختار من هذه
+   القائمة ولا يخترع قيماً جديدة.
+   ========================================================================== */
+
+:root {
+  /* المقاس */
+  --ctl-h-sm: 34px;
+  --ctl-h-md: 44px;
+  --ctl-h-lg: 54px;
+
+  --ctl-pad-sm: 11px;
+  --ctl-pad-md: 18px;
+  --ctl-pad-lg: 26px;
+
+  --ctl-r-sm: 9px;
+  --ctl-r-md: 12px;
+  --ctl-r-lg: 14px;
+
+  /* مدى الهالة. يتناسب مع الزر، وإلا صارت حلقة شاردة حول الأزرار الصغيرة. */
+  --ctl-fog-sm: 3px;
+  --ctl-fog-md: 7px;
+  --ctl-fog-lg: 10px;
+
+  /* الكثافتان. كل واحدة زوج: حجاب + حبر. ممنوع فصلهما. */
+  --ctl-veil-paper: 0.9;
+  --ctl-ink-paper: var(--text);
+  --ctl-veil-royal: 0.06;
+  --ctl-ink-royal: var(--on-royal);
+
+  /* الحافة */
+  --ctl-edge: rgba(var(--gold-rgb), 0.2);
+  --ctl-edge-lit: rgba(var(--gold-rgb), 0.44);
+}
+
+/* ==========================================================================
+   ROUND 27 · الارتفاع، والحافة، والهالة
+
+   ثلاثة أسئلة يجيب عنها هذا الملف وحده:
+   • كم يرتفع هذا السطح عن الورق؟      ← --elev-0 .. --elev-3
+   • أين يقع الضوء على حافته؟          ← --edge-lift / --edge-sink
+   • كم من الظلّ يحمل الحرف نفسه؟   ← --halo-*
+
+   قاعدتان محرّمتان:
+   1) ممنوع إزاحة أفقية في أي ظلّ لوحة جانبية. في العربية تفتح اللوحة
+      من الجهة المقابلة، والظلّ ذو الإزاحة يصير حينها خلف الشاشة.
+      الحلّ: ضبابية وانتشار بلا x.
+   2) أي هالة تقع على نصّ يتحرّك كل إطار تكون بلا blur.
+   ========================================================================== */
+
+:root {
+  /* --- الارتفاع -------------------------------------------------------
+     كل درجة ثلاث طبقات: ظلّ تماسّ (1px)، وظلّ شكل، وظلّ محيط.
+     الطبقة الأولى هي ما يجعل الشيء ملموساً؛ الثالثة هي ما يجعله
+     مرتفعاً. حذف الأولى هو سبب أن كل شيء اليوم يبدو مطبوعاً. */
+  --elev-0:
+    0 1px 1px rgba(23, 20, 15, 0.05),
+    0 2px 6px rgba(23, 20, 15, 0.06);
+
+  --elev-1:
+    0 1px 1px rgba(23, 20, 15, 0.06),
+    0 4px 12px rgba(23, 20, 15, 0.08),
+    0 10px 26px rgba(23, 20, 15, 0.07);
+
+  --elev-2:
+    0 1px 2px rgba(23, 20, 15, 0.07),
+    0 8px 22px rgba(23, 20, 15, 0.10),
+    0 26px 58px rgba(23, 20, 15, 0.12);
+
+  --elev-3:
+    0 2px 4px rgba(23, 20, 15, 0.09),
+    0 14px 34px rgba(23, 20, 15, 0.14),
+    0 40px 90px rgba(23, 20, 15, 0.18);
+
+  /* لوحة تغطّي الصفحة. بلا إزاحة أفقية — تفتح يميناً أو يساراً بحسب اللغة. */
+  --elev-panel:
+    0 0 0 1px rgba(23, 20, 15, 0.06),
+    0 18px 50px rgba(23, 20, 15, 0.20),
+    0 60px 120px rgba(23, 20, 15, 0.26);
+
+  /* ورقة تصعد من أسفل الشاشة. هنا الإزاحة إلى الأعلى صحيحة ومقصودة. */
+  --elev-sheet:
+    0 -1px 0 rgba(23, 20, 15, 0.08),
+    0 -14px 34px rgba(23, 20, 15, 0.16),
+    0 -34px 80px rgba(23, 20, 15, 0.24);
+
+  /* --- الحافة -----------------------------------------------------------
+     خطّ ضوء داخلي في أعلى السطح، وخطّ ظلّ داخلي في أسفله. هذا
+     ما يفصل بين مستطيل ملوّن وقطعة مادة لها سمك. */
+  --edge-lift: rgba(255, 253, 248, 0.55);
+  --edge-lift-royal: rgba(247, 236, 216, 0.14);
+  --edge-sink: rgba(37, 5, 8, 0.12);
+
+  /* --- الحجاب خلف اللوحات --------------------------------------- */
+  --scrim: rgba(23, 20, 15, 0.62);
+  --scrim-blur: 8px;
+
+  /* --- نصف قطر النوافذ ---------------------------------------------- */
+  --win-r: 16px;
+  --win-r-sm: 12px;
+
+  /* --- هالة النصّ -------------------------------------------------------
+     ليست زخرفة. وظيفتها أن ينفصل الحرف عن السطح الذي تحته بمقدار
+     يُحسّ ولا يُرى. أربع مواد، لأنّ الموقع فيه أربعة أسطح:
+
+       --halo-ink        حبر داكن على ورق دافئ   (الوضع العام)
+       --halo-ink-strong العناوين الكبيرة على الورق
+       --halo-invert     حبر فاتح على مادة داكنة (النوافذ، البطاقات)
+       --halo-royal      حبر فاتح على الأحمر الملكي (الأزرار)
+
+     الطبقة الأولى في كلّ واحدة بلا blur: هي التي ترسم الحافة. والثانية
+     هي الوهج، وهي أول ما يُحذف عند طلب تباين أعلى. */
+  --halo-ink:
+    0 1px 0 rgba(255, 253, 248, 0.5),
+    0 1px 2px rgba(23, 20, 15, 0.10);
+
+  --halo-ink-strong:
+    0 1px 0 rgba(255, 253, 248, 0.62),
+    0 2px 5px rgba(23, 20, 15, 0.13),
+    0 0 22px rgba(var(--gold-rgb), 0.10);
+
+  --halo-mono:
+    0 1px 0 rgba(255, 253, 248, 0.42);
+
+  --halo-invert:
+    0 1px 0 rgba(23, 20, 15, 0.55),
+    0 2px 10px rgba(23, 20, 15, 0.35),
+    0 0 18px rgba(var(--gold-rgb), 0.10);
+
+  --halo-royal:
+    0 1px 0 rgba(37, 5, 8, 0.5),
+    0 0 14px rgba(var(--gold-rgb), 0.18);
+
+  /* الاسم المتحرّك حرفاً حرفاً. إزاحة صلبة واحدة، بلا blur، بلا إعادة
+     رسم لكل إطار. */
+  --halo-name: 0 1px 0 rgba(37, 5, 8, 0.22);
+
+  --halo-off: none;
+}
+
+/* التباين يسبق الجمال. من يطلب تبايناً أعلى يأخذ حروفاً نظيفة تماماً. */
+@media (prefers-contrast: more) {
+  :root {
+    --halo-ink: none;
+    --halo-ink-strong: none;
+    --halo-mono: none;
+    --halo-invert: 0 1px 0 rgba(23, 20, 15, 0.7);
+    --halo-royal: 0 1px 0 rgba(37, 5, 8, 0.7);
+    --halo-name: none;
+  }
+}
+
+/* من يطلب السكون يأخذ هالات بلا انتشار واسع، تماماً كما فعلت --gild. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --halo-ink-strong:
+      0 1px 0 rgba(255, 253, 248, 0.62),
+      0 2px 5px rgba(23, 20, 15, 0.13);
+    --halo-invert:
+      0 1px 0 rgba(23, 20, 15, 0.55),
+      0 2px 10px rgba(23, 20, 15, 0.35);
+  }
+}
+
+

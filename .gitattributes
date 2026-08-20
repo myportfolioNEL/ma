@@ -1,0 +1,13 @@
+# Binary files are never text. This repository has already lost two of them to
+# a text channel - src/assets/portrait.webp, and all three CV PDFs - and the
+# damage is invisible until something tries to decompress them. Git is not what
+# broke them, but it is the one place the rule can be written once and applied
+# to every clone and every tool that respects it.
+*.pdf   -text -diff
+*.webp  -text -diff
+*.png   -text -diff
+*.jpg   -text -diff
+*.jpeg  -text -diff
+*.woff2 -text -diff
+*.mp3   -text -diff
+*.mp4   -text -diff

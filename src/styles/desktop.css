@@ -1,0 +1,4604 @@
+/* ==========================================================================
+   desktop.css — the mouse build.
+
+   Standalone. No phone breakpoints, no touch fallbacks, no overrides of a
+   "base" layout, because this file IS the layout for this device class. Hover
+   is assumed to exist; a pointer is assumed to be precise.
+   ========================================================================== */
+
+/* --- 1. primitives ------------------------------------------------------- */
+
+.gl {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-backdrop);
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.shell {
+  width: min(100% - var(--gutter) * 2, var(--maxw));
+  margin-inline: auto;
+}
+
+.section {
+  position: relative;
+  z-index: var(--z-content);
+  width: min(100% - var(--gutter) * 2, var(--maxw));
+  margin-inline: auto;
+  padding-block: var(--s-9);
+
+  /* The browser is allowed to skip layout, style and paint for any section
+     that is not on screen. contain-intrinsic-size is not optional next to it:
+     without a placeholder size the scrollbar would jump as sections are
+     skipped and un-skipped. "auto" means "remember the real size once you have
+     measured it once", which is what keeps the scroll position stable. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}
+
+.section--tight { padding-block: var(--s-7); }
+
+.rule { height: 1px; border: 0; margin: 0; background: var(--line); }
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.skip {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 200;
+  translate: -50% -200%;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--invert);
+  color: var(--on-invert);
+  font: 500 0.8rem/1 var(--font-mono);
+  text-decoration: none;
+  transition: translate 0.25s var(--e-out);
+}
+
+.skip:focus-visible { translate: -50% 0; }
+
+/* --- 2. type ------------------------------------------------------------- */
+
+.display,
+.hero__name,
+.win__title,
+.case__title,
+.contact__title {
+  font-family: var(--font-display);
+  font-variation-settings: var(--vf-display);
+  text-transform: uppercase;
+  letter-spacing: -0.035em;
+  line-height: 0.9;
+}
+
+.h1 { font-family: var(--font-display); font-size: var(--t-h1); line-height: 1.02; letter-spacing: -0.03em; }
+.h2 { font-family: var(--font-display); font-size: var(--t-h2); line-height: 1.06; letter-spacing: -0.02em; }
+.h3 { font-family: var(--font-display); font-size: var(--t-h3); line-height: 1.16; }
+.serif { font-family: var(--font-serif); font-style: italic; }
+
+.lead { font-size: var(--t-lead); line-height: 1.5; color: var(--text-dim); }
+
+.mono,
+.header__clock,
+.win__url,
+.win__index {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.prose { color: var(--text-dim); line-height: 1.7; max-width: var(--maxw-text); }
+.dim { color: var(--text-dim); }
+.faint { color: var(--text-faint); }
+.accent { color: var(--accent); }
+
+/* --- 3. reveal + split --------------------------------------------------- */
+
+/* The reveal system owns these transforms. Liquid drift is never attached to
+   an element carrying [data-reveal] — it goes on an inner wrapper. */
+/* CSS owns the entrance completely now. useReveal adds one class and, for
+   elements that entered in the same batch, a --rd delay. 0.8s was also simply
+   too long for a window the visitor is already looking at. */
+[data-reveal] {
+  opacity: 0;
+  translate: 0 22px;
+  transition:
+    opacity 0.46s var(--e-out) var(--rd, 0s),
+    translate 0.46s var(--e-out) var(--rd, 0s);
+}
+
+[data-reveal].is-in { opacity: 1; translate: 0 0; }
+
+/* These three kinds were animated in JavaScript and had no CSS state at all,
+   which is why "fade" also slid and "blur" and "clip" did nothing. */
+[data-reveal="fade"] { translate: 0 0; }
+
+[data-reveal="blur"] {
+  filter: blur(10px);
+  transition:
+    opacity 0.46s var(--e-out) var(--rd, 0s),
+    translate 0.46s var(--e-out) var(--rd, 0s),
+    filter 0.5s var(--e-out) var(--rd, 0s);
+}
+
+[data-reveal="blur"].is-in { filter: blur(0); }
+
+[data-reveal="clip"] {
+  opacity: 1;
+  translate: 0 0;
+  clip-path: inset(0 0 100% 0);
+  transition: clip-path 0.7s var(--e-out) var(--rd, 0s);
+}
+
+[data-reveal="clip"].is-in { clip-path: inset(0 0 0% 0); }
+
+.split-line { display: block; overflow: hidden; }
+/* No permanent will-change here. A hint on a class that matches every glyph
+   in a heading promotes hundreds of elements to their own compositor layers
+   and keeps them there for the life of the page, which costs memory on every
+   frame including the ones where nothing moves. The letter engine sets and
+   clears the hint on the few letters it is actually driving. */
+.split-inner, .split-word, .split-char { display: inline-block; }
+
+/* --- 4. controls -------------------------------------------------------- */
+
+/*
+  The desktop button.
+
+  Four layers, each with exactly one responsibility:
+
+    .btn          the hit area and the magnetic transform owner. It has no
+                  border, no background and no padding of its own, because
+                  anything painted here would be dragged around by the magnet
+                  and would smear against the edge of the warp layer.
+    .btn__warp    the visible body: border, radius, tint, clipping. This is
+                  the element the SVG displacement filter attaches to, so it
+                  must be the outermost painted box.
+    .btn__plate   the fill that rises on hover. Transform only.
+    .btn__label   the text; a second, hidden copy rises to replace it.
+
+  --e is written by lib/energy.ts, 0 to 1, in steps of 0.05. It is the local
+  strength of the liquid field. Everything that makes the button feel like
+  part of the disturbance is derived from it: the border colour, the corner
+  radius, the inner tint and the glow. The transitions below are what turn
+  those stepped values back into continuous motion.
+*/
+
+.btn {
+  --e: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  min-height: 46px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 500 0.95rem/1 var(--font-sans);
+  text-decoration: none;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  isolation: isolate;
+}
+
+.btn__warp {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  min-height: inherit;
+  padding: 0 1.35rem;
+  overflow: hidden;
+  border: 1px solid
+    color-mix(in oklab, var(--line-mid), var(--accent) calc(var(--e) * 65%));
+  /* Pill at rest; the harder the field hits it, the more it squares off. The
+     shape genuinely reports the disturbance instead of illustrating it. */
+  border-radius: calc(var(--radius-pill) - var(--e) * 20px);
+  background: color-mix(in oklab, transparent, var(--accent) calc(var(--e) * 8%));
+  transition:
+    border-color 0.28s var(--e-out),
+    border-radius 0.4s var(--e-soft),
+    background-color 0.28s var(--e-out);
+}
+
+/* The glow. One radial gradient, opacity driven straight from the field. No
+   blur, no shadow: both are per-frame paint work and neither is needed. */
+.btn__warp::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: calc(var(--e) * 0.55);
+  background: radial-gradient(
+    120% 140% at 50% 120%,
+    rgba(var(--accent-rgb), 0.32),
+    transparent 62%
+  );
+  transition: opacity 0.3s var(--e-out);
+}
+
+.btn__plate {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: var(--invert);
+  translate: 0 101%;
+  transition: translate 0.44s var(--e-out);
+}
+
+.btn__label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  white-space: nowrap;
+  transition:
+    translate 0.42s var(--e-out),
+    opacity 0.28s linear,
+    color 0.28s var(--e-out);
+}
+
+.btn__label--ghost {
+  position: absolute;
+  inset: 0;
+  justify-content: center;
+  translate: 0 100%;
+  opacity: 0;
+  color: var(--on-invert);
+}
+
+.btn__text { display: inline-block; }
+
+.btn__icon {
+  display: inline-flex;
+  transition: translate 0.3s var(--e-out);
+}
+
+/* --- hover ------------------------------------------------------------- */
+
+.btn:hover .btn__plate { translate: 0 0; }
+.btn:hover .btn__label { translate: 0 -100%; opacity: 0; }
+.btn:hover .btn__label--ghost { translate: 0 0; opacity: 1; }
+.btn:hover .btn__icon { translate: 2px -2px; }
+.btn:hover .btn__warp { border-color: transparent; }
+
+/* --- keyboard ---------------------------------------------------------- */
+
+.btn:focus-visible { outline: none; }
+.btn:focus-visible .btn__warp {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* --- press ------------------------------------------------------------- */
+
+.btn:active .btn__warp { scale: 0.985; }
+.btn__warp { transition-property: border-color, border-radius, background-color, scale; }
+
+/* --- variants ---------------------------------------------------------- */
+
+.btn--primary .btn__warp {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.btn--primary .btn__plate { background: var(--accent-2); }
+.btn--primary .btn__label--ghost { color: var(--accent-ink); }
+.btn--primary .btn__warp::after { opacity: calc(var(--e) * 0.32); }
+
+.btn--ghost .btn__warp {
+  border-color: transparent;
+  background: none;
+  padding-inline: 0.4rem;
+  color: var(--text-dim);
+}
+.btn--ghost .btn__plate { display: none; }
+.btn--ghost .btn__label--ghost { color: var(--text); }
+.btn--ghost:hover .btn__label { translate: 0 -100%; }
+
+/* A ghost button has no body to change shape, so the field reaches it as a
+   line that thickens under the label. */
+.btn--ghost .btn__warp::before {
+  content: "";
+  position: absolute;
+  left: 0.4rem;
+  right: 0.4rem;
+  bottom: 10px;
+  height: 1px;
+  background: currentColor;
+  scale: var(--e, 0) 1;
+  transform-origin: left;
+  transition: scale 0.4s var(--e-out);
+}
+.btn--ghost:hover .btn__warp::before { scale: 1 1; }
+
+.btn--lg { min-height: 54px; font-size: 1rem; }
+.btn--lg .btn__warp { padding: 0 1.7rem; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.34em 0.85em;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+}
+
+.pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2.6s var(--e-in-out) infinite;
+}
+
+.tags { display: flex; flex-wrap: wrap; gap: 0.45rem; margin: 0; padding: 0; list-style: none; }
+
+.tag {
+  padding: 0.34em 0.7em;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: 500 0.7rem/1.4 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.marquee { overflow: hidden; border-block: 1px solid var(--line); padding-block: 0.9rem; }
+
+.marquee__track {
+  display: flex;
+  width: max-content;
+  gap: 3rem;
+  animation: marquee var(--marquee-duration, 44s) linear infinite;
+}
+
+.marquee__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.marquee:hover .marquee__track { animation-play-state: paused; }
+
+/*
+  The desktop section heading.
+
+  The static 1px border is gone. In its place is .head__rule, which draws
+  itself from the left the first time the section arrives and then stays as a
+  line whose colour is tied to the field. Same visual weight at rest, but the
+  heading now belongs to the same system as everything else on the page.
+*/
+
+.head {
+  --e: 0;
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 1.4rem;
+  padding-bottom: var(--s-4);
+  margin-bottom: var(--s-7);
+}
+
+.head__index {
+  font: 500 0.72rem/1 var(--font-mono);
+  letter-spacing: 0.16em;
+  color: var(--accent);
+  /* Lifts very slightly out of the baseline as the field passes. One
+     transform, no layout. */
+  translate: 0 calc(var(--e) * -3px);
+  transition: translate 0.35s var(--e-out);
+}
+
+.head__titlewrap { min-width: 0; }
+
+.head__title {
+  font-family: var(--font-display);
+  font-size: var(--t-h2);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.head__note {
+  justify-self: end;
+  font: 500 0.72rem/1.5 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--text-faint), var(--text) calc(var(--e) * 55%));
+  transition: color 0.35s var(--e-out);
+}
+
+.head__rule {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--line), var(--accent) calc(var(--e) * 70%)),
+    var(--line) 62%,
+    transparent
+  );
+  scale: 0 1;
+  transform-origin: left;
+  transition:
+    scale 0.9s var(--e-out),
+    background 0.4s var(--e-out);
+}
+
+/* The reveal system adds .is-in to the title wrapper when its entrance
+   finishes; the rule draws immediately after, which reads as the heading
+   underlining itself. */
+.head__titlewrap.is-in ~ .head__rule { scale: 1 1; }
+
+/* --- 5. chrome ---------------------------------------------------------- */
+
+.header {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: var(--z-header);
+  height: var(--header-h);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 2rem;
+  padding-inline: var(--s-6);
+  border-bottom: 1px solid transparent;
+  transition:
+    translate 0.4s var(--e-out),
+    background-color 0.3s var(--e-out),
+    border-color 0.3s var(--e-out);
+}
+
+/* Static blur, switched once. Never animated. */
+.header[data-solid] {
+  background: var(--surface-glass);
+  border-bottom-color: var(--line);
+  /* Kept, but cheaper. backdrop-filter re-reads and re-blurs everything behind
+     the element on every frame it is visible, and the cost scales with the
+     radius. 9px is visually almost identical here and measurably lighter
+     while scrolling. If the site ever needs one more point of scroll
+     performance on a weak machine, deleting this single line is where to get
+     it: the header keeps its background and its border and only loses the
+     blur. */
+}
+
+.header[data-hidden] { translate: 0 -100%; }
+
+.header__mark {
+  justify-self: start;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+}
+
+.header__mark b { font-family: var(--font-display); font-size: 1.05rem; letter-spacing: -0.02em; }
+.header__mark span { font-size: 0.72rem; color: var(--text-faint); }
+
+.header__nav { display: flex; align-items: center; gap: 0.4rem; }
+
+.header__link {
+  padding: 0.5rem 0.85rem;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--text-dim);
+  font: 500 0.82rem/1 var(--font-sans);
+  transition: color 0.25s var(--e-out), background-color 0.25s var(--e-out);
+}
+
+.header__link:hover { color: var(--text); background: var(--surface-2); }
+.header__link[aria-current] { color: var(--text); }
+
+.header__meta { justify-self: end; display: inline-flex; align-items: center; gap: 1rem; }
+.header__clock { color: var(--text-faint); }
+
+.header__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font: 500 0.74rem/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.header__progress {
+  position: absolute;
+  inset: auto 0 0;
+  height: 1px;
+  background: transparent;
+  overflow: hidden;
+}
+
+/* Written by transform only, from the shared tick. */
+.header__progress-bar {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.rail {
+  position: fixed;
+  top: 50%;
+  left: 18px;
+  translate: 0 -50%;
+  z-index: var(--z-rail);
+  display: grid;
+  gap: 0.9rem;
+}
+
+.rail__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+}
+
+.rail__index { font: 500 0.64rem/1 var(--font-mono); letter-spacing: 0.1em; }
+
+.rail__line {
+  width: 16px;
+  height: 1px;
+  background: currentColor;
+  transition: width 0.3s var(--e-out);
+}
+
+.rail__label {
+  font: 500 0.64rem/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0;
+  translate: -6px 0;
+  transition: opacity 0.3s var(--e-out), translate 0.3s var(--e-out);
+}
+
+.rail__item:hover { color: var(--text); }
+.rail__item:hover .rail__label { opacity: 1; translate: 0 0; }
+.rail__item:hover .rail__line { width: 28px; }
+.rail__item[aria-current] { color: var(--accent); }
+.rail__item[aria-current] .rail__line { width: 34px; }
+
+
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-preloader);
+  display: grid;
+  place-items: center;
+  background: var(--invert);
+  color: var(--on-invert);
+}
+
+.preloader__inner { width: min(520px, 70vw); display: grid; gap: 1rem; }
+
+.preloader__name {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1;
+  letter-spacing: -0.035em;
+  text-transform: uppercase;
+}
+
+.preloader__bar { height: 2px; background: var(--invert-line); overflow: hidden; }
+
+.preloader__fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  scale: 0 1;
+  transform-origin: left center;
+}
+
+.preloader__count {
+  justify-self: end;
+  font: 500 0.74rem/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  color: var(--on-invert-faint);
+}
+
+.footer {
+  position: relative;
+  z-index: var(--z-content);
+  width: min(100% - var(--gutter) * 2, var(--maxw));
+  margin-inline: auto;
+  padding-block: var(--s-7);
+  border-top: 1px solid var(--line);
+}
+
+.footer__grid { display: grid; grid-template-columns: 1fr auto; gap: var(--s-5); align-items: end; }
+.footer__meta { display: grid; gap: 0.35rem; color: var(--text-faint); }
+.footer__links { display: flex; flex-wrap: wrap; gap: 1.4rem; }
+
+.footer__link {
+  font: 500 0.74rem/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color 0.25s var(--e-out);
+}
+
+.footer__link:hover { color: var(--accent); }
+
+/* --- 6. hero ------------------------------------------------------------ */
+
+.hero {
+  position: relative;
+  z-index: var(--z-content);
+  min-height: 100svh;
+  display: grid;
+  align-content: center;
+  width: min(100% - var(--gutter) * 2, var(--maxw));
+  margin-inline: auto;
+  padding-top: var(--header-h);
+}
+
+.hero__grid { display: grid; gap: var(--s-5); max-width: 62rem; }
+
+/* Drift target. Deliberately not a reveal target. */
+.hero__float { display: block; }
+
+.hero__name { font-size: var(--t-display); margin: 0; }
+
+.hero__role { font-family: var(--font-mono); font-size: 0.8rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); }
+
+.hero__lead { font-size: var(--t-lead); line-height: 1.5; color: var(--text-dim); max-width: 54ch; }
+
+.hero__actions { display: flex; flex-wrap: wrap; gap: 0.8rem; }
+
+.hero__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--line);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.hero__hint { display: inline-flex; align-items: center; gap: 0.5rem; animation: nudge 2.4s var(--e-in-out) infinite; }
+
+/* --- 7. work + windows -------------------------------------------------- */
+
+/* The three materials. Declared once each; components only set data-project.
+   Pine, ultramarine and burnt ochre — chosen to sit inside the paper palette
+   instead of fighting it, which is what the old neon did. */
+.win[data-project="nl"] {
+  --win-ink: #101a16;
+  --win-tint: #2f6f57;
+  --win-line: rgba(47, 111, 87, 0.42);
+}
+
+.win[data-project="prism"] {
+  --win-ink: #111624;
+  --win-tint: #3b53a8;
+  --win-line: rgba(59, 83, 168, 0.42);
+}
+
+.win[data-project="momento"] {
+  --win-ink: #1c150e;
+  --win-tint: #a86a1f;
+  --win-line: rgba(168, 106, 31, 0.42);
+}
+
+.work__list { display: grid; gap: var(--s-8); }
+
+/* Staggered, so three windows read as a desk and not as a list. */
+.win:nth-child(odd) { justify-self: start; width: min(100%, 62rem); }
+.win:nth-child(even) { justify-self: end; width: min(100%, 58rem); }
+
+.win__btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--win-line);
+  border-radius: var(--radius-lg);
+  background: var(--win-ink);
+  text-align: left;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: border-color 0.4s var(--e-out);
+}
+
+.win__btn:hover { border-color: var(--win-tint); }
+
+.win__chrome {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--win-line);
+  color: var(--on-invert-faint);
+}
+
+.win__url { justify-self: center; }
+.win__index { color: var(--win-tint); filter: brightness(1.5); }
+
+.win__pane {
+  position: relative;
+  display: grid;
+  align-content: space-between;
+  gap: var(--s-6);
+  min-height: 25rem;
+  padding: var(--s-6);
+  color: var(--on-invert);
+  isolation: isolate;
+}
+
+/* The art layer is its own moving part; the image inside it only draws. */
+.win__art {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  display: block;
+  pointer-events: none;
+}
+
+.win__poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Presence follows --e, the local energy of the liquid field published by the
+     drift hook: disturb the background near a window and its art warms up.
+     Opacity is a compositor property, so this stays free.
+
+     COLOUR NO LONGER FOLLOWS --e, AND filter IS NO LONGER TRANSITIONED. It used
+     to be both: grayscale() bound to a custom property that is rewritten in
+     0.05 steps while the field is awake, and interpolated over 0.55s on top.
+     A grayscale pass is paint, not composite, so that combination repainted the
+     largest element in the window on most frames. The image now has one resting
+     filter and one hover filter, each applied once. */
+  opacity: calc(0.12 + var(--e, 0) * 0.2);
+  filter: grayscale(1) contrast(1.06);
+  scale: 1.04;
+  transition:
+    opacity 0.55s var(--e-out),
+    scale 0.8s var(--e-out);
+}
+
+/* NL: a full interface screenshot. Shown whole and centred inside the window,
+   never cropped, because a cropped screenshot of an interface says nothing. */
+.win__poster[data-fit="contain"] {
+  inset: 9% 7% 15%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  object-position: 50% 42%;
+  opacity: calc(0.22 + var(--e, 0) * 0.26);
+  filter: grayscale(0.85) contrast(1.02);
+  scale: 1;
+}
+
+/* Hover and focus keep the same two ends the design had - a grey poster that
+   comes to colour under attention - but each end is a single static value, so
+   the browser paints the filter twice per visit to a window instead of once
+   per frame. */
+.win__btn:hover .win__poster,
+.win__btn:focus-visible .win__poster {
+  opacity: calc(0.44 + var(--e, 0) * 0.22);
+  filter: grayscale(0.35) contrast(1.06);
+  scale: 1;
+}
+
+.win__btn:hover .win__poster[data-fit="contain"],
+.win__btn:focus-visible .win__poster[data-fit="contain"] {
+  opacity: calc(0.72 + var(--e, 0) * 0.2);
+  filter: grayscale(0) contrast(1.02);
+}
+
+/* mix-blend-mode: color keeps the poster's luminance and takes only its hue
+   from the window, which is why the image reads as tinted material rather
+   than as an image with a coloured sheet over it. */
+.win__wash {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in srgb, var(--win-ink) 92%, transparent) 0%,
+      transparent 62%
+    ),
+    var(--win-tint);
+  mix-blend-mode: color;
+  opacity: 0.55;
+  /* A blended layer cannot be composited on its own: every frame of this
+     transition re-blends the pane underneath it. The hover change stays, the
+     0.55s ramp does not. */
+  transition: opacity 0.22s var(--e-out);
+}
+
+.win__btn:hover .win__wash,
+.win__btn:focus-visible .win__wash { opacity: 0.72; }
+
+.win__copy { display: grid; gap: 0.5rem; }
+.win__kind { font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--win-tint); filter: brightness(1.6); }
+.win__title { font-size: clamp(2.6rem, 5vw, 4.6rem); }
+.win__sub { max-width: 46ch; color: var(--on-invert-dim); line-height: 1.5; }
+
+.win__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--win-line);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-invert-faint);
+}
+
+.win__open { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--on-invert); }
+.win__btn:hover .win__open { color: var(--win-tint); filter: brightness(1.6); }
+
+/* --- 8. case study ------------------------------------------------------ */
+
+.case[data-project="nl"] { --case-tint: #2f6f57; }
+.case[data-project="prism"] { --case-tint: #3b53a8; }
+.case[data-project="momento"] { --case-tint: #a86a1f; }
+
+.case { position: fixed; inset: 0; z-index: var(--z-overlay); }
+
+.case__scrim {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--invert) 55%, transparent);
+  backdrop-filter: blur(3px);
+}
+
+.case__panel {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(56rem, 100%);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  box-shadow: var(--shadow-sheet);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.case__bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem var(--s-6);
+  background: var(--surface-glass-strong);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+
+.case__crumb { font: 500 0.72rem/1 var(--font-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-faint); }
+
+.case__close {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line-mid);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  transition: background-color 0.25s var(--e-out);
+}
+
+.case__close:hover { background: var(--surface-2); }
+
+.case__body { display: grid; gap: var(--s-6); padding: var(--s-7) var(--s-6) var(--s-9); }
+.case__head { display: grid; gap: 0.9rem; }
+.case__title { font-size: clamp(2.4rem, 5vw, 4rem); }
+.case__lead { font-size: var(--t-lead); line-height: 1.5; color: var(--text-dim); max-width: 52ch; }
+
+/* The real screenshot: full colour, no filter, no tint. */
+.case__hero {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.case__hero img { display: block; width: 100%; height: auto; }
+
+/* A screenshot that is meant to be read is not a decorative crop. */
+.case__hero img[data-fit="contain"] {
+  object-fit: contain;
+  background: var(--surface-2);
+}
+
+.case__facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.case__facts > div { display: grid; gap: 0.35rem; padding: var(--s-4); background: var(--surface); }
+.case__facts dt { font: 500 0.66rem/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
+.case__facts dd { margin: 0; font-size: 0.94rem; }
+
+.case__block { display: grid; gap: 0.9rem; }
+.case__h3 { font-family: var(--font-display); font-size: var(--t-h3); letter-spacing: -0.01em; }
+.case__text { color: var(--text-dim); line-height: 1.7; max-width: var(--maxw-text); }
+
+.case__list { display: grid; gap: 0.7rem; margin: 0; padding: 0; list-style: none; }
+
+.case__list li {
+  display: grid;
+  grid-template-columns: 2rem 1fr;
+  gap: 1rem;
+  padding-bottom: 0.7rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+.case__list li span:first-child { font: 500 0.74rem/1.7 var(--font-mono); color: var(--case-tint); }
+
+.case__actions { display: flex; flex-wrap: wrap; gap: 0.8rem; padding-top: var(--s-4); }
+
+/* --- 9. shared sections ------------------------------------------------- */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.stat { display: grid; gap: 0.5rem; padding: var(--s-5); background: var(--surface); }
+.stat__value { font-family: var(--font-display); font-size: clamp(2rem, 3.4vw, 3.1rem); line-height: 1; letter-spacing: -0.035em; }
+.stat__label { font: 500 0.68rem/1.4 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); }
+.stats__note { padding-top: var(--s-4); color: var(--text-faint); }
+
+.about__grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: var(--s-7); align-items: start; }
+.about__media { border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-2); }
+.about__media img { display: block; width: 100%; height: auto; }
+.about__body { display: grid; gap: var(--s-5); }
+
+.about__facts {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.about__fact { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding: 0.8rem var(--s-4); background: var(--surface); }
+.about__langs { display: grid; gap: 0.4rem; color: var(--text-dim); }
+
+.caps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.cap { display: grid; gap: 0.8rem; padding: var(--s-6); background: var(--surface); }
+.cap__index { font: 500 0.7rem/1 var(--font-mono); letter-spacing: 0.14em; color: var(--accent); }
+.cap__title { font-family: var(--font-display); font-size: var(--t-h3); line-height: 1.14; }
+.cap__items { display: grid; gap: 0.45rem; margin: 0; padding: 0; list-style: none; }
+.cap__item { color: var(--text-dim); }
+.cap__proof { padding-top: 0.7rem; border-top: 1px solid var(--line); color: var(--text-faint); }
+
+.contact { display: grid; gap: var(--s-5); }
+.contact__title { font-size: var(--t-display); }
+
+.contact__mail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: clamp(1.1rem, 2vw, 1.6rem);
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-mid);
+  transition: border-color 0.3s var(--e-out), color 0.3s var(--e-out);
+}
+
+.contact__mail:hover { color: var(--accent); border-color: var(--accent); }
+
+.contact__channels {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.channel { display: grid; gap: 0.35rem; padding: var(--s-4); background: var(--surface); color: var(--text); text-decoration: none; transition: background-color 0.25s var(--e-out); }
+.channel:hover { background: var(--surface-2); }
+.channel__label { font: 500 0.66rem/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
+
+/* --- keyframes ---------------------------------------------------------- */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; scale: 1; }
+  50% { opacity: 0.45; scale: 0.82; }
+}
+
+@keyframes marquee {
+  from { translate: 0 0; }
+  to { translate: -50% 0; }
+}
+
+@keyframes nudge {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 4px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track,
+  .pill__dot,
+  .hero__hint { animation: none; }
+
+  [data-reveal] { opacity: 1; translate: 0 0; transition: none; }
+
+  .win__poster,
+  .win__wash,
+  .btn,
+  .btn__warp,
+  .btn__warp::after,
+  .btn__plate,
+  .btn__label,
+  .btn__icon,
+  .head__index,
+  .head__note,
+  .head__rule { transition: none; }
+
+  /* No label swap and no rising plate: the button is a plain, high-contrast
+     control that changes colour on hover and nothing more. */
+  .btn__plate { display: none; }
+  .btn__label--ghost { display: none; }
+  .btn:hover .btn__label { translate: 0 0; opacity: 1; }
+  .btn:hover .btn__warp { border-color: var(--line-strong); background: var(--surface-2); }
+  .btn--primary:hover .btn__warp { background: var(--accent-2); }
+
+  .head__rule { scale: 1 1; }
+}
+/* ==========================================================================
+   ROUND 20 — letters, warp layer, and shape that follows the field
+   ========================================================================== */
+
+/* --- the name, letter by letter ---------------------------------------- */
+
+.hero__namewrap {
+  display: block;
+}
+
+/* The lead sentence floats on its own identity, so it is never in step with
+   the name above it. Inline elements cannot be transformed; this can. */
+.hero__leadfloat {
+  display: inline-block;
+}
+
+.ln {
+  /* Letters are positioned by the engine, so nothing here may stretch or
+     justify them. */
+  display: block;
+}
+
+.ln__word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.ln__char {
+  display: inline-block;
+  /* The engine freezes each letter's width in pixels after the webfont loads,
+     which is what allows weight and width to change without the line ever
+     reflowing. Centring keeps the glyph in the middle of its frozen box. */
+  text-align: center;
+  transform-origin: 50% 62%;
+  backface-visibility: hidden;
+  /* --l is the letter's own heat, 0 at rest. At exactly 0 this is exactly
+     var(--text), so the resting state is the real resting state. */
+  color: color-mix(in oklab, var(--accent) calc(var(--l, 0) * 100%), var(--text));
+  font-variation-settings: var(--vf-display);
+}
+
+/* --- the arrival layer -------------------------------------------------- */
+
+.win__warp {
+  display: block;
+  /* This element holds a filter for under a second and nothing else, ever.
+     No transform here: that belongs to .win__float. */
+}
+
+/* --- shape and colour follow the field ---------------------------------- */
+
+/* Corners soften and the edge takes the accent as the field passes through.
+   Both are driven by --e, so the change is caused by the distortion in the
+   background rather than by a hover class. */
+.win__btn {
+  border-radius: calc(var(--radius-lg) + var(--e, 0) * 12px);
+  border-color: color-mix(
+    in oklab,
+    var(--win-line) calc(100% - var(--e, 0) * 60%),
+    var(--accent)
+  );
+  transition:
+    border-radius 0.5s var(--e-out),
+    border-color 0.5s var(--e-out),
+    transform 0.5s var(--e-out);
+}
+
+.win__title {
+  color: color-mix(in oklab, var(--accent) calc(var(--e, 0) * 45%), currentColor);
+  transition: color 0.4s var(--e-out);
+}
+
+/* Reduced motion: no field, no energy, no distortion — and a site that is
+   still complete. */
+@media (prefers-reduced-motion: reduce) {
+  .win__btn {
+    border-radius: var(--radius-lg);
+    transition: none;
+  }
+
+  .ln__char {
+    color: var(--text);
+    font-variation-settings: var(--vf-display);
+  }
+}
+
+/* ==========================================================================
+   ROUND 22 - the live preview layer, desktop
+   ==========================================================================
+
+   .pw sits in the same stacking slot as the poster and paints after it, so a
+   live page takes the screenshot's place without either of them moving. The
+   wash above it (z-index -1) still tints it, which is the whole reason a live
+   site reads as part of this page instead of a browser pasted on top of it.
+   ========================================================================== */
+
+.pw {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  /* Never a target. The click belongs to the window button underneath and the
+     wheel belongs to the page. pointer-events: none on a frame also stops
+     hit-testing everything inside it, which is exactly what is wanted. */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.5s var(--e-out);
+}
+
+.pw[data-state="live"] { opacity: 1; }
+
+/* The frame renders at a real desktop size and is scaled into the pane. This
+   transform is the only one on this element; no drift hook owns it. */
+.pw__frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--pw-w, 1440px);
+  height: var(--pw-h, 900px);
+  border: 0;
+  background: var(--win-ink);
+  transform: scale(var(--pw-scale, 1));
+  transform-origin: 0 0;
+}
+
+/* When the page is live the screenshot gets out of the way and the tint eases
+   off, so the site's real colours come through. :has() is used because the
+   poster precedes .pw in the source order and cannot be reached forwards. */
+.win__pane:has(.pw[data-state="live"]) .win__poster,
+.win__pane:has(.pw[data-state="live"]) .win__poster[data-fit="contain"] {
+  opacity: 0;
+  transition: opacity 0.45s var(--e-out);
+}
+
+/* The wash is a following sibling, so it needs no :has() at all. */
+.pw[data-state="live"] ~ .win__wash { opacity: 0.36; }
+
+/* The pane already reserves 25rem of height, so a poster that has not arrived
+   yet leaves a window, not a hole. This adds the one thing it lacked: a base
+   colour underneath the image. The pane isolates, so its own background paints
+   below the negative z-index layers inside it. */
+.win__pane { background: var(--win-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  [data-reveal="blur"],
+  [data-reveal="clip"] { transition: none; }
+
+  .pw { transition: none; }
+}
+
+/* ==========================================================================
+   ROUND 23 - the royal thread, mouse build
+
+   Sections, in order:
+     1. buttons
+     2. section heads
+     3. the mail plate
+     4. the waiting mark
+     5. the places that wait
+     6. the preloader and the footer
+   ========================================================================== */
+
+/* --- 1. buttons ---------------------------------------------------------- */
+
+/* The frame. The border walks from ink to gold as the field warms, and the
+   thread itself lives on this element as a background that travels. */
+.btn__warp {
+  border-color: color-mix(
+    in oklab,
+    var(--line-mid),
+    var(--rr-lit) calc(var(--e) * 78%)
+  );
+  background-image: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(var(--rr-rgb), calc(var(--e) * 0.1)) 42%,
+    rgba(var(--gold-rgb), calc(var(--e) * 0.16)) 68%,
+    transparent 100%
+  );
+  background-size: var(--thread-size);
+  background-position: calc(var(--e) * 100%) 0;
+  background-repeat: no-repeat;
+}
+
+/* The glow was vermilion. It is gold now, and weaker, because gold at full
+   strength on bone paper turns into a smear rather than a light. */
+.btn__warp::after {
+  background: radial-gradient(
+    120% 140% at 50% 120%,
+    rgba(var(--gold-rgb), 0.34) 0%,
+    rgba(var(--rr-rgb), 0.16) 46%,
+    transparent 78%
+  );
+  opacity: calc(var(--e) * 0.5);
+}
+
+/* The plate that slides up on hover. This is the ornamental red texture, and
+   it is the largest piece of it on the page after the mail plate. */
+.btn__plate {
+  background-color: var(--orn-red);
+  background-image: var(--orn-texture);
+  background-size: var(--orn-size);
+  box-shadow: inset 0 1px 0 rgba(var(--gold-rgb), 0.22);
+}
+
+/* Labels. Ink on paper at rest, warm bone on the red plate, gold on primary.
+   Never gold on paper: that is the one combination in this palette that
+   cannot be read. */
+.btn__label {
+  color: var(--text);
+}
+
+.btn:hover .btn__label,
+.btn:focus-visible .btn__label {
+  color: var(--on-royal);
+}
+
+.btn__label--ghost {
+  color: var(--on-royal);
+}
+
+.btn:hover .btn__label--ghost,
+.btn:focus-visible .btn__label--ghost {
+  color: var(--on-royal);
+}
+
+/* Primary sits on the red ground from the start, so its label is gold, which
+   here measures better than 8:1. */
+.btn--primary .btn__warp {
+  border-color: rgba(var(--gold-rgb), 0.42);
+  background-color: var(--rr);
+  background-image: var(--orn-texture);
+  background-size: var(--orn-size);
+  box-shadow: var(--royal-shadow);
+}
+
+.btn--primary .btn__label,
+.btn--primary .btn__label--ghost,
+.btn--primary:hover .btn__label,
+.btn--primary:focus-visible .btn__label {
+  color: var(--gold-lit);
+}
+
+.btn--primary .btn__icon {
+  color: var(--gold);
+}
+
+/* The gold hairline that appears on the primary edge as the field warms. One
+   inset shadow, no extra element. */
+.btn--primary:hover .btn__warp,
+.btn--primary:focus-visible .btn__warp {
+  border-color: rgba(var(--gold-rgb), calc(0.42 + var(--e) * 0.5));
+}
+
+/* Ghost buttons keep their quiet, and gain the thread only as an underline
+   the width of the label. */
+.btn--ghost .btn__warp {
+  background-image: none;
+}
+
+.btn--ghost .btn__label {
+  background-image: var(--thread-line);
+  background-repeat: no-repeat;
+  background-size: calc(var(--e) * 100%) 1px;
+  background-position: 0 100%;
+}
+
+/* The pill, same family, quieter. */
+.pill {
+  border-color: color-mix(
+    in oklab,
+    var(--line-mid),
+    var(--rr) calc(var(--e) * 55%)
+  );
+}
+
+/* --- 2. section heads ---------------------------------------------------- */
+
+/* The index is now a small ornamental chip: red ground, gold numerals. This is
+   where gold becomes readable, and it is the clearest quotation of the frame
+   in the reference image. */
+.head__index {
+  padding: 0.34em 0.62em 0.3em;
+  border: 1px solid rgba(var(--gold-rgb), 0.34);
+  border-radius: var(--radius);
+  background-color: var(--orn-red);
+  background-image: var(--orn-texture);
+  background-size: var(--orn-size);
+  color: var(--gold-lit);
+  box-shadow: 0 1px 0 rgba(var(--gold-rgb), 0.14);
+}
+
+/* The title. Royal red is the warm state, ink is the rest state, and the gild
+   is a hairline of gold leaf on the glyph, not a glow behind it. */
+.head__title {
+  color: var(--text);
+  transition:
+    color var(--d-2) var(--e-out),
+    text-shadow var(--d-2) var(--e-out);
+}
+
+.head:hover .head__title,
+.head:focus-within .head__title {
+  color: var(--rr);
+  text-shadow: var(--gild);
+}
+
+/* The rule under the title is the thread at its most literal: ink at the
+   left, gold at the right, and it draws itself as the head arrives. */
+.head__rule {
+  background-color: transparent;
+  background-image: var(--thread-line);
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  background-position: 0 50%;
+  opacity: calc(0.5 + var(--e) * 0.5);
+}
+
+.head__titlewrap.is-in ~ .head__rule {
+  background-size: 100% 1px;
+}
+
+/* The note keeps its calm grey and leans red only under the pointer. */
+.head__note {
+  color: color-mix(
+    in oklab,
+    var(--text-dim),
+    var(--rr) calc(var(--e) * 34%)
+  );
+}
+
+/* --- 3. the mail plate --------------------------------------------------- */
+
+.contact__plate {
+  display: grid;
+  justify-items: start;
+  gap: var(--s-5);
+  margin-block-start: var(--s-6);
+}
+
+.mp {
+  display: inline-grid;
+  grid-template-areas:
+    "plate"
+    "hint"
+    "action";
+  gap: var(--s-3);
+  justify-items: start;
+  position: relative;
+}
+
+/* One button, one tab stop, and the only interactive node in the plate. */
+.mp__btn {
+  grid-area: plate;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The element the displacement filter is leased to. Never the button itself:
+   a filter on a focusable element blurs its focus ring. */
+.mp__warp {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 68px;
+  padding: var(--s-3) var(--s-5);
+  isolation: isolate;
+}
+
+/* The ornamental ground and the frame, one element, four corner points. It
+   sweeps open from the centre on arrival: clip-path, not inset, so the sweep
+   is a composite and not a relayout of the text inside it. */
+.mp__frame {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 1px solid rgba(var(--gold-rgb), 0.46);
+  border-radius: var(--radius);
+  background-color: var(--orn-red);
+  background-image: var(--orn-texture);
+  background-size: var(--orn-size);
+  box-shadow: var(--royal-shadow);
+  clip-path: inset(0 0 0 0);
+  animation: mp-sweep 0.72s var(--e-out) both;
+}
+
+/* The inner line of the ornament, held 7px off the frame. It tightens toward
+   the edge as the field warms, which is the whole gesture of the original
+   snippet, done with one transform instead of an animated inset. */
+.mp__frame::before {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgba(var(--gold-rgb), calc(0.16 + var(--e) * 0.34));
+  border-radius: 1px;
+  scale: calc(0.985 + var(--e) * 0.015);
+}
+
+/* The sheen. It travels with the pointer instead of resizing the gradient,
+   which is what made the original repaint the whole plate every frame. */
+.mp__frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: linear-gradient(
+    100deg,
+    transparent 42%,
+    rgba(var(--gold-rgb), 0.2) 50%,
+    transparent 58%
+  );
+  background-size: 280% 100%;
+  background-position: calc(var(--e) * 100%) 0;
+  background-repeat: no-repeat;
+  opacity: calc(0.25 + var(--e) * 0.75);
+}
+
+/* The four gold lozenges. Squares turned 45 degrees, which is the corner
+   flourish in the image, and cheaper than four border images. */
+.mp__pt {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  rotate: 45deg;
+  background: var(--gold);
+  box-shadow: 0 0 0 1px rgba(var(--gold-rgb), 0.28);
+}
+
+.mp__pt--tl {
+  top: -4px;
+  left: -4px;
+}
+.mp__pt--tr {
+  top: -4px;
+  right: -4px;
+}
+.mp__pt--bl {
+  bottom: -4px;
+  left: -4px;
+}
+.mp__pt--br {
+  bottom: -4px;
+  right: -4px;
+}
+
+/* The two stacked lines. Both live in one grid cell, so the swap cannot move
+   anything, and the plate cannot change width when the address appears. */
+.mp__lines {
+  display: grid;
+  align-items: center;
+  justify-items: start;
+  min-width: 22ch;
+  overflow: hidden;
+}
+
+.mp__line {
+  grid-area: 1 / 1;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.01em;
+  color: var(--gold-lit);
+  white-space: nowrap;
+  transition:
+    opacity var(--d-2) var(--e-out),
+    translate var(--d-2) var(--e-out);
+}
+
+.mp__line--alt {
+  opacity: 0;
+  translate: 0 62%;
+}
+
+/* Hover, keyboard focus, and a finished copy all reveal the address. Focus is
+   included because a keyboard visitor must be able to read what they are
+   about to copy. */
+.mp__btn:hover .mp__line,
+.mp__btn:focus-visible .mp__line,
+.mp[data-state="copied"] .mp__line,
+.mp[data-state="failed"] .mp__line {
+  opacity: 0;
+  translate: 0 -62%;
+}
+
+.mp__btn:hover .mp__line--alt,
+.mp__btn:focus-visible .mp__line--alt,
+.mp[data-state="copied"] .mp__line--alt,
+.mp[data-state="failed"] .mp__line--alt {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.mp__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgba(var(--gold-rgb), 0.3);
+  border-radius: var(--radius);
+  color: var(--gold-lit);
+  background: rgba(var(--gold-rgb), calc(0.06 + var(--e) * 0.12));
+}
+
+.mp[data-state="copied"] .mp__mark {
+  border-color: rgba(var(--gold-rgb), 0.7);
+  color: var(--gold-lit);
+}
+
+/* Four hints in one cell. Exactly one is visible, and because they all stay in
+   the DOM the line below the plate never changes height. */
+.mp__hint {
+  grid-area: hint;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  opacity: 0;
+  transition: opacity var(--d-1) linear;
+}
+
+.mp[data-state="idle"] .mp__hint[data-hint="rest"] {
+  opacity: 1;
+}
+
+.mp[data-state="idle"]:hover .mp__hint[data-hint="rest"],
+.mp[data-state="idle"]:focus-within .mp__hint[data-hint="rest"] {
+  opacity: 0;
+}
+
+.mp[data-state="idle"]:hover .mp__hint[data-hint="hover"],
+.mp[data-state="idle"]:focus-within .mp__hint[data-hint="hover"] {
+  opacity: 1;
+}
+
+.mp[data-state="copied"] .mp__hint[data-hint="copied"] {
+  opacity: 1;
+  color: var(--rr);
+}
+
+.mp[data-state="failed"] .mp__hint[data-hint="failed"] {
+  opacity: 1;
+  color: var(--rr-lit);
+  text-transform: none;
+  letter-spacing: 0.01em;
+}
+
+/* The escape hatch for anyone who wanted their mail client all along. */
+.mp__action {
+  grid-area: action;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-decoration: none;
+  background-image: var(--thread-line);
+  background-repeat: no-repeat;
+  background-size: 0 1px;
+  background-position: 0 100%;
+  transition:
+    background-size var(--d-2) var(--e-out),
+    color var(--d-2) var(--e-out);
+}
+
+.mp__action:hover,
+.mp__action:focus-visible {
+  color: var(--rr);
+  background-size: 100% 1px;
+}
+
+/* The live region. Present for assistive technology, absent from the page. */
+.mp__live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@keyframes mp-sweep {
+  from {
+    clip-path: inset(0 50% 0 50%);
+    opacity: 0;
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+}
+
+/* --- 4. the waiting mark ------------------------------------------------- */
+
+.ld {
+  --ld-hair: rgba(var(--rr-rgb), 0.5);
+  --ld-gold: rgba(var(--gold-rgb), 0.62);
+  --ld-fill: rgba(var(--rr-rgb), 0.14);
+
+  position: relative;
+  display: inline-grid;
+  grid-template-rows: var(--ld-h) 4px;
+  gap: 5px;
+  width: var(--ld-w);
+  pointer-events: none;
+}
+
+/* On a dark or red ground the same mark switches to gold hairlines. */
+.ld--on {
+  --ld-hair: rgba(var(--gold-rgb), 0.7);
+  --ld-gold: rgba(240, 220, 166, 0.85);
+  --ld-fill: rgba(var(--gold-rgb), 0.14);
+}
+
+.ld--sm {
+  --ld-h: 22px;
+  width: calc(var(--ld-w) * 0.72);
+  grid-template-rows: 22px 3px;
+}
+
+/* The vessel. scaleX only: the original animated width, which relaid out its
+   own contents sixty times a second. */
+.ld__vessel {
+  position: relative;
+  border: 1px solid var(--ld-hair);
+  border-top-color: var(--ld-gold);
+  border-radius: 2px 2px 9px 9px;
+  background-color: var(--ld-fill);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: 0 0;
+  transform-origin: 0% 50%;
+  animation:
+    ld-pour var(--ld-speed) infinite var(--e-in-out),
+    ld-fill calc(var(--ld-speed) * 2.4) infinite linear;
+}
+
+/* The gold rim. Static, and it is what makes the vessel read as a vessel. */
+.ld__lip {
+  position: absolute;
+  inset: -1px -1px auto -1px;
+  height: 2px;
+  background: var(--ld-gold);
+  border-radius: 2px 2px 0 0;
+}
+
+/* Three wisps of vapour. The one blur in this batch, and it is 8px on a 14px
+   box, which rasterises once per frame in a 22 pixel area. */
+.ld__wisp {
+  position: absolute;
+  left: 50%;
+  bottom: 62%;
+  width: 14px;
+  height: 22px;
+  border-radius: 40%;
+  background: var(--ld-gold);
+  filter: blur(8px);
+  opacity: 0;
+  translate: -50% 0;
+  animation: ld-rise var(--ld-speed) infinite var(--e-in-out);
+}
+
+.ld__wisp--1 {
+  animation-delay: 0s;
+}
+.ld__wisp--2 {
+  left: 34%;
+  animation-delay: calc(var(--ld-speed) * 0.3);
+}
+.ld__wisp--3 {
+  left: 66%;
+  animation-delay: calc(var(--ld-speed) * 0.6);
+}
+
+/* The dotted trail. One gradient, one tile, and the travel is exactly one
+   tile per cycle, so it is seamless. */
+.ld__trail {
+  background-image: radial-gradient(
+    circle at 1.6px 50%,
+    var(--ld-gold) 0 1.6px,
+    transparent 2.1px
+  );
+  background-size: 9px 100%;
+  background-repeat: repeat-x;
+  mask-image: linear-gradient(90deg, #000 0 58%, transparent 100%);
+  animation: ld-trail var(--ld-speed) infinite linear;
+}
+
+@keyframes ld-pour {
+  0% {
+    scale: 0.26 1;
+  }
+  46% {
+    scale: 1 1;
+  }
+  74% {
+    scale: 1 1;
+  }
+  100% {
+    scale: 0.26 1;
+  }
+}
+
+@keyframes ld-fill {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 100% 0;
+  }
+}
+
+@keyframes ld-rise {
+  0% {
+    opacity: 0;
+    translate: -50% 0;
+    scale: 0.6;
+  }
+  28% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 0;
+    translate: -50% -30px;
+    scale: 1;
+  }
+}
+
+@keyframes ld-trail {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 9px 0;
+  }
+}
+
+/* Stillness: the mark stays, the motion goes. A visitor who asked for no
+   animation still needs to know that something is loading. */
+@media (prefers-reduced-motion: reduce) {
+  .ld__vessel,
+  .ld__wisp,
+  .ld__trail {
+    animation: none;
+  }
+
+  .ld__vessel {
+    scale: 1 1;
+  }
+
+  .ld__wisp {
+    opacity: 0.28;
+    filter: blur(6px);
+  }
+}
+
+/* --- 5. the places that wait -------------------------------------------- */
+
+/* All five slots share one geometry: dead centre of the box they belong to,
+   above the poster, below the chrome, and untouchable. */
+.win__wait,
+.card__wait,
+.pw__wait,
+.case__wait,
+.sheet__wait {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  pointer-events: none;
+}
+
+/* Inside a window pane the ground is the project's own ink, so the mark is
+   given a small veil to sit on rather than floating on the artwork.
+
+   A backdrop-filter: blur(2px) used to be here. It is gone on purpose: this
+   veil is on screen exactly while a poster is decoding or a whole website is
+   booting inside an iframe - the busiest moment in the page - and it asked the
+   compositor for a blur pass over the pane at that moment. Four per cent more
+   ink buys the same separation for nothing. The phone build never had the blur
+   (mobile.css:1521), which is now deliberate rather than accidental. */
+.win__wait,
+.card__wait,
+.pw__wait {
+  background: rgba(37, 5, 8, 0.38);
+}
+
+/* The case study hero is on paper, so no veil: the mark sits on the empty
+   figure, and the image fades in over it when it lands. */
+.case__hero {
+  position: relative;
+}
+
+.case__hero img {
+  transition: opacity var(--d-3) var(--e-out);
+}
+
+.case__hero[data-waiting="true"] img {
+  opacity: 0;
+}
+
+/* --- 6. the preloader and the footer ------------------------------------ */
+
+/* The entrance bar is the thread. This is the first thing anyone sees of the
+   palette, and it is one element with one scaleX tween on it already. */
+.preloader__fill {
+  background-color: var(--rr);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: 0 0;
+}
+
+.preloader__bar {
+  border-block-end: 1px solid rgba(var(--gold-rgb), 0.18);
+}
+
+.preloader__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+}
+
+.preloader__wait {
+  display: inline-flex;
+}
+
+.preloader__count {
+  color: var(--gold);
+}
+
+/* The footer links get the same thread underline as the ghost button, so the
+   bottom of the page belongs to the same family as the top. */
+.footer__link {
+  background-image: var(--thread-line);
+  background-repeat: no-repeat;
+  background-size: 0 1px;
+  background-position: 0 100%;
+  transition:
+    background-size var(--d-2) var(--e-out),
+    color var(--d-2) var(--e-out);
+}
+
+.footer__link:hover,
+.footer__link:focus-visible {
+  color: var(--rr);
+  background-size: 100% 1px;
+}
+
+/* The contact channels: a gold hairline on the left edge as they warm. */
+.channel {
+  border-color: color-mix(
+    in oklab,
+    var(--line),
+    var(--gold-deep) calc(var(--e) * 60%)
+  );
+}
+
+/* ==========================================================================
+   ROUND 24 - make the thread visible, mouse build
+
+   Round 23 painted the thread. This round makes it arrive without asking the
+   visitor to hover, and without asking JavaScript for permission.
+
+   Rule for the whole block: the resting state is the finished state. Every
+   sweep, draw and shimmer below is an enhancement layered on top of something
+   that is already fully visible with scripting disabled.
+   ========================================================================== */
+
+/* --- 1. section heads: a boundary that exists at rest -------------------- */
+
+.head {
+  padding-bottom: var(--s-5);
+}
+
+/* The rule no longer waits for .is-in to be added by the reveal system. It is
+   drawn at rest, in two hairlines: the thread on top, a gold echo beneath. */
+.head__rule {
+  height: 2px;
+  scale: 1 1;
+  opacity: 1;
+  background-color: transparent;
+  background-image:
+    var(--thread-line),
+    linear-gradient(
+      90deg,
+      rgba(var(--gold-rgb), 0.5) 0%,
+      rgba(var(--gold-rgb), 0.14) 44%,
+      transparent 76%
+    );
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 1px, 100% 1px;
+  background-position: 0 0, 0 100%;
+}
+
+/* The index chip carries the ornament, so the eye finds the section start
+   before it reads the words. */
+.head__index {
+  color: var(--gold-lit);
+  box-shadow:
+    0 1px 0 rgba(var(--gold-rgb), 0.18),
+    inset 0 1px 0 rgba(var(--gold-rgb), 0.16);
+}
+
+/* --- 2. section boundaries: the logic of the page ------------------------ */
+
+/* One hairline between consecutive sections. It is the same thread, at a
+   quarter of its strength, so the page reads as chapters rather than as one
+   long column. */
+.section + .section::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background-image: var(--thread-line);
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+/* --- 3. buttons: the thread at rest, not only under the pointer ---------- */
+
+.btn__warp {
+  border-color: color-mix(
+    in oklab,
+    rgba(var(--rr-rgb), 0.42),
+    var(--rr-lit) calc(var(--e) * 78%)
+  );
+}
+
+/* Hover used to hide the border entirely, which read as the button losing its
+   edge. It keeps a gold one instead. */
+.btn:hover .btn__warp {
+  border-color: rgba(var(--gold-rgb), 0.55);
+}
+
+.btn--primary .btn__warp {
+  border-color: rgba(var(--gold-rgb), 0.55);
+}
+
+.btn--primary .btn__label {
+  color: var(--on-royal);
+  text-shadow: var(--halo-royal);
+}
+
+/* The rising plate is the ornamental ground itself. */
+.btn__plate {
+  background-color: var(--orn-red);
+  background-image: var(--orn-texture);
+  background-size: var(--orn-size);
+}
+
+/* A ghost button shows a fifth of its underline at rest, so it is legible as
+   a control before the field ever warms. */
+.btn--ghost .btn__label {
+  background-size: calc(22% + var(--e) * 78%) 1px;
+}
+
+/* --- 4. the mail plate: the object from the reference -------------------- */
+
+.mp {
+  /* The cut corner. 11px on the frame, 10px on the ground inside it, which is
+     what leaves a one-pixel gold edge along the diagonal too. */
+  --mp-cut: polygon(
+    11px 0,
+    calc(100% - 11px) 0,
+    100% 11px,
+    100% calc(100% - 11px),
+    calc(100% - 11px) 100%,
+    11px 100%,
+    0 calc(100% - 11px),
+    0 11px
+  );
+  --mp-cut-in: polygon(
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0 calc(100% - 10px),
+    0 10px
+  );
+}
+
+.mp__warp {
+  gap: var(--s-5);
+  min-height: 88px;
+  padding: var(--s-4) var(--s-6);
+}
+
+/* The frame is now two layers instead of a border: this one is the gold edge,
+   and it follows the cut corners, which a border cannot do. The arrival sweep
+   is gone: an object that is invisible until an animation finishes is an
+   object that is invisible when the animation never runs. */
+.mp__frame {
+  border: 0;
+  border-radius: 0;
+  clip-path: var(--mp-cut);
+  background-color: var(--gold-hair);
+  background-image: none;
+  box-shadow: none;
+  animation: none;
+  filter: drop-shadow(0 2px 2px rgba(37, 5, 8, 0.28))
+    drop-shadow(0 16px 30px rgba(37, 5, 8, 0.26));
+}
+
+/* The ornamental ground, one pixel inside the gold edge. */
+.mp__frame::before {
+  inset: 1px;
+  border: 0;
+  border-radius: 0;
+  clip-path: var(--mp-cut-in);
+  scale: 1;
+  background-color: var(--orn-red);
+  background-image: var(--orn-texture);
+  background-size: var(--orn-size);
+}
+
+/* The inner hairline and the travelling sheen, one element. The hairline is
+   what the reference calls the second frame; it tightens as the field warms. */
+.mp__frame::after {
+  inset: 8px;
+  border: 1px solid rgba(var(--gold-rgb), calc(0.26 + var(--e) * 0.34));
+  border-radius: 0;
+  background-image: linear-gradient(
+    100deg,
+    transparent 42%,
+    rgba(var(--gold-rgb), 0.16) 50%,
+    transparent 58%
+  );
+  background-size: 280% 100%;
+  background-position: calc(var(--e) * 100%) 0;
+  background-repeat: no-repeat;
+  opacity: 1;
+}
+
+/* The four corner lozenges sit exactly on the cuts. */
+.mp__pt {
+  width: 10px;
+  height: 10px;
+  background: var(--gold-lit);
+  box-shadow:
+    0 0 0 1px rgba(var(--gold-rgb), 0.55),
+    0 0 10px rgba(var(--gold-rgb), 0.32);
+}
+
+.mp__pt--tl { top: 1px; left: 1px; }
+.mp__pt--tr { top: 1px; right: 1px; }
+.mp__pt--bl { bottom: 1px; left: 1px; }
+.mp__pt--br { bottom: 1px; right: 1px; }
+
+/* The two lines. Gold on the red ground measures better than 7:1, and the
+   plate is wide enough for the whole address so the swap cannot resize it. */
+.mp__lines {
+  min-width: 28ch;
+}
+
+.mp__line {
+  font-size: var(--fs-sm);
+  letter-spacing: 0.02em;
+  color: var(--gold-lit);
+  text-shadow: var(--halo-royal);
+}
+
+.mp__mark {
+  width: 30px;
+  height: 30px;
+  border-color: rgba(var(--gold-rgb), 0.45);
+  background: rgba(var(--gold-rgb), calc(0.1 + var(--e) * 0.14));
+}
+
+/* The hint under the plate is a real sentence at a real size, not a whisper. */
+.mp__hint {
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+}
+
+/* --- 5. the waiting mark: legible on paper ------------------------------- */
+
+.ld {
+  --ld-hair: rgba(var(--rr-rgb), 0.62);
+  --ld-gold: rgba(var(--gold-rgb), 0.85);
+  --ld-fill: rgba(var(--rr-rgb), 0.16);
+}
+
+/* --- 6. stillness -------------------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .mp__frame::after {
+    background-image: none;
+  }
+
+  .head__rule {
+    scale: 1 1;
+  }
+}
+
+/* ==========================================================================
+   ROUND 25 · DESKTOP — مادة واحدة لكل أزرار الموقع
+
+   لماذا كتلة في الآخر وليس تعديلاً في مكانه: كل قاعدة هنا لها نفس الخصوصية
+   أو أعلى من القاعدة القديمة المقابلة، والأخيرة تفوز. محاولة تحرير 2259 سطراً
+   في أماكن متفرقة هي بالضبط ما فشل في الجولات السابقة.
+   ========================================================================== */
+
+/* --- 1. إلغاء الميكانيكا القديمة ------------------------------------------ */
+
+.btn__plate,
+.btn__label--ghost,
+.btn__ink {
+  display: none !important;
+}
+
+.btn--ghost .btn__warp::before,
+.btn__warp::after {
+  content: none;
+}
+
+.btn:hover .btn__label { translate: 0; opacity: 1; }
+
+/* --- 2. الشكل العام ------------------------------------------------------ */
+
+.btn {
+  --e: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  min-height: 48px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 500 0.95rem/1 var(--font-sans);
+  text-decoration: none;
+  border-radius: var(--btn-r);
+  cursor: pointer;
+  isolation: isolate;
+}
+
+/* الهالة. لا حدّ حادّ بين الزر والصفحة: الزر يتكثّف منها. */
+.btn__fog {
+  position: absolute;
+  inset: -10px;
+  z-index: -1;
+  border-radius: calc(var(--btn-r) + 10px);
+  pointer-events: none;
+  opacity: calc(0.34 + var(--e) * 0.66);
+  filter: blur(var(--btn-fog-blur));
+  background: var(--btn-fog);
+  transition: opacity 0.42s var(--e-out);
+}
+
+.btn__warp {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  min-height: inherit;
+  padding: 0 1.4rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--btn-r);
+  background-color: rgba(74, 10, 14, calc(0.05 + var(--e) * 0.07));
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  /* الخيط يزحف من الأحمر إلى الذهبي بمقدار قرب المؤشر، لا بـ hover ثنائي. */
+  background-position: calc(12% + var(--e) * 74%) 50%;
+  -webkit-backdrop-filter: var(--btn-glass);
+  backdrop-filter: var(--btn-glass);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--gold-rgb), calc(0.16 + var(--e) * 0.30)),
+    inset 0 1px 0 rgba(247, 236, 216, 0.14),
+    0 8px 24px rgba(37, 5, 8, calc(0.08 + var(--e) * 0.14));
+  transition:
+    background-position 0.62s var(--e-out),
+    background-color 0.32s var(--e-out),
+    box-shadow 0.32s var(--e-out),
+    scale 0.18s var(--e-out);
+}
+
+/* حجاب الورق: الخيط وشاح، ليس طلاءً. النص يجب أن يبقى مقروءاً في السكون. */
+.btn__warp::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--surface);
+  opacity: calc(var(--btn-veil) - var(--e) * 0.50);
+  transition: opacity 0.4s var(--e-out);
+}
+
+.btn__label {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55em;
+  white-space: nowrap;
+  translate: 0;
+  opacity: 1;
+  color: color-mix(in oklab, var(--text), var(--on-royal) calc(var(--e) * 88%));
+  text-shadow: 0 1px 0 rgba(37, 5, 8, calc(var(--e) * 0.5));
+  transition: color 0.34s var(--e-out);
+}
+
+.btn__icon { transition: translate 0.3s var(--e-out); }
+.btn:hover .btn__icon { translate: 2px -2px; }
+
+/* --- 3. الدخان ----------------------------------------------------------- */
+
+.btn__smoke {
+  position: absolute;
+  inset: -6px -6px 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.btn[data-smoke="on"] .btn__smoke { opacity: 1; }
+
+.btn__puff {
+  position: absolute;
+  bottom: 4px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  filter: blur(var(--smoke-blur));
+  opacity: 0;
+  background: var(--smoke);
+}
+
+.btn[data-smoke="on"] .btn__puff {
+  animation: btn-smoke var(--smoke-time) var(--e-out) forwards;
+}
+
+.btn__puff--1 { left: 12%; }
+.btn__puff--2 { left: 42%; width: 40px; height: 40px; animation-delay: 0.08s; }
+.btn__puff--3 { left: 72%; animation-delay: 0.15s; }
+
+@keyframes btn-smoke {
+  0%   { translate: 0 8px;   scale: 0.5;  opacity: 0; }
+  18%  { opacity: 0.95; }
+  100% { translate: 0 -40px; scale: 1.75; opacity: 0; }
+}
+
+/* --- 4. الوزن الوحيد المسموح به ------------------------------------------
+   ليست أشكالاً مختلفة، بل نفس المادة بكثافة أعلى أو أقل. */
+
+.btn--primary .btn__warp::before { opacity: calc(0.12 - var(--e) * 0.12); }
+.btn--primary .btn__label {
+  color: var(--on-royal);
+  text-shadow: var(--halo-royal);
+}
+.btn--primary .btn__fog { opacity: calc(0.60 + var(--e) * 0.40); }
+
+.btn--quiet .btn__warp {
+  padding-inline: 0.7rem;
+  background-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb), calc(var(--e) * 0.24));
+}
+.btn--quiet .btn__warp::before { opacity: 0; }
+.btn--quiet .btn__fog { opacity: calc(var(--e) * 0.5); }
+
+.btn--lg { min-height: 56px; font-size: 1rem; }
+.btn--lg .btn__warp { padding: 0 1.8rem; }
+
+.btn:focus-visible { outline: none; }
+.btn:focus-visible .btn__warp {
+  outline: 2px solid rgba(var(--gold-rgb), 0.8);
+  outline-offset: 3px;
+}
+
+.btn:active .btn__warp { scale: 0.986; }
+
+/* --- 5. نفس المادة لكل زر ليس <Button> --------------------------------
+   هذه هي النقطة التي تجعل الموقع يبدو مصمّماً بدل مجمّعاً. */
+
+.header__cta,
+.win__btn,
+.case__close,
+.mp__action,
+.lang__btn > .btn__warp {
+  position: relative;
+  border: 0;
+  border-radius: var(--btn-r);
+  background-color: rgba(74, 10, 14, 0.055);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: 14% 50%;
+  -webkit-backdrop-filter: var(--btn-glass);
+  backdrop-filter: var(--btn-glass);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--gold-rgb), 0.18),
+    0 6px 18px rgba(37, 5, 8, 0.08);
+  color: var(--text);
+  transition:
+    background-position 0.62s var(--e-out),
+    box-shadow 0.3s var(--e-out),
+    color 0.3s var(--e-out);
+}
+
+.header__cta:hover,
+.win__btn:hover,
+.case__close:hover,
+.mp__action:hover {
+  background-position: 74% 50%;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--gold-rgb), 0.42),
+    0 10px 26px rgba(37, 5, 8, 0.16);
+  color: var(--on-royal);
+}
+
+/* روابط القائمة والتذييل: نفس اللغة بدون لوح زجاجي — خيط يظهر تحت الكلمة. */
+.header__link,
+.footer__link {
+  position: relative;
+  border-radius: var(--btn-r-sm);
+  transition: color 0.28s var(--e-out), background-color 0.28s var(--e-out);
+}
+
+.header__link::after,
+.footer__link::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0.5rem;
+  bottom: 4px;
+  height: 1px;
+  border-radius: 1px;
+  background-image: var(--thread-line);
+  scale: 0 1;
+  transform-origin: center;
+  transition: scale 0.42s var(--e-out);
+}
+
+.header__link:hover,
+.header__link[aria-current],
+.footer__link:hover { background-color: transparent; color: var(--text); }
+
+.header__link:hover::after,
+.header__link[aria-current]::after,
+.footer__link:hover::after { scale: 1 1; }
+
+/* واجهة النافذة واللوحة البريدية تأخذ الدخان أيضاً عند الضغط. */
+.win__btn[data-smoke="on"],
+.mp__btn[data-smoke="on"] { will-change: filter; }
+
+/* Cleanups from Step 7 */
+.footer__grid { grid-template-columns: 1fr; }
+
+.rail__item { pointer-events: none; cursor: default; }
+.rail__label { display: none; }
+.rail__item[data-current] { color: var(--rr); }
+.rail__item[data-current] .rail__line {
+  width: 34px;
+  background-image: var(--thread-line);
+}
+
+/* إطار مركون: حيّ في الذاكرة، غائب عن العين والإصبع وقارئ الشاشة */
+.pw[data-parked="true"] {
+  visibility: hidden;
+  content-visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.pw[data-parked="true"] .pw__wait { display: none; }
+
+/* الأقسام خارج الشاشة لا تُخطّط ولا تُرسم حتى تقترب. */
+#numbers,
+#about,
+#capabilities,
+#contact {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+img[loading="lazy"] { content-visibility: auto; }
+
+/* --------------------------------------------------------------------------
+   ROUND 25 · مبدّل اللغة
+   -------------------------------------------------------------------------- */
+
+.lang {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+/* الزر نفسه يرث كل مادة .btn — هذا فقط تقليص المقاس. */
+.lang__btn {
+  min-height: 34px;
+  padding-inline: 12px;
+  border-radius: var(--btn-r-sm);
+}
+
+.lang__code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* مؤشّر الفتح: خيط ذهبي رفيع تحت الرمز، لا مثلث ولا سهم. */
+.lang__btn::after {
+  content: "";
+  position: absolute;
+  inset-inline: 34%;
+  bottom: 5px;
+  height: 1px;
+  background: var(--thread-line);
+  opacity: 0;
+  transition: opacity 0.28s var(--e-out);
+  pointer-events: none;
+}
+
+.lang[data-open="true"] .lang__btn::after { opacity: 0.9; }
+
+.lang__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 60;
+  min-width: 168px;
+  padding: 6px;
+  border-radius: var(--btn-r);
+  overflow: hidden;
+  isolation: isolate;
+
+  /* نفس المادة بالضبط: زجاج ثابت مع حافة ذهبية وظلّ ملكي. */
+  background:
+    linear-gradient(180deg, rgba(var(--rr-rgb), 0.2), rgba(var(--rr-rgb), 0.34)),
+    var(--orn-tile);
+  background-size: auto, var(--orn-size);
+  backdrop-filter: var(--btn-glass-strong);
+  -webkit-backdrop-filter: var(--btn-glass-strong);
+  border: 1px solid rgba(var(--gold-rgb), 0.3);
+  box-shadow: var(--royal-shadow), inset 0 1px 0 rgba(247, 236, 216, 0.1);
+}
+
+/* طبقة الضباب نفسها، حتى يكون للقائمة وللزر نفس العمق. */
+.lang__fog {
+  position: absolute;
+  inset: -20%;
+  background: var(--btn-fog);
+  filter: blur(var(--btn-fog-blur));
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.lang__warp {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 2px;
+  will-change: filter;
+}
+
+.lang__option {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--btn-r-sm);
+  background: transparent;
+  color: var(--on-royal-dim);
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background-color 0.24s var(--e-out),
+    color 0.24s var(--e-out);
+}
+
+.lang__option-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  opacity: 0.72;
+  min-width: 22px;
+}
+
+.lang__option-name { font-size: 13px; }
+
+.lang__option:hover,
+.lang__option:focus-visible {
+  background: rgba(247, 236, 216, 0.09);
+  color: var(--on-royal);
+  outline: none;
+}
+
+.lang__option:focus-visible { box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb), 0.5); }
+
+/* اللغة الحالية: نقطة ذهبية واحدة، لا علامة صح ولا إيموجي. */
+.lang__option[aria-selected="true"] {
+  color: var(--on-royal);
+  background: rgba(var(--gold-rgb), 0.12);
+}
+
+.lang__option[aria-selected="true"]::after {
+  content: "";
+  margin-inline-start: auto;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--gold-lit);
+  box-shadow: 0 0 8px rgba(var(--gold-rgb), 0.7);
+}
+
+/* ==========================================================================
+   ROUND 25 · RTL
+   ========================================================================== */
+
+[dir="rtl"] .marquee__track {
+  animation-direction: reverse;
+}
+
+/* حُذف عكس الأيقونات: الأسهم هنا قُطرية ونازلة، وليست اتجاهية.
+   ما يحتاج العكس فعلاً يأخذ الصنف .icon--flip من base.css. */
+
+[dir="rtl"] .rail { inset-inline-start: var(--gutter); inset-inline-end: auto; }
+
+/* حُذف: كان يتصارع مع translate داخل @keyframes btn-smoke — نفس الخاصية
+   معلَنة في مكانين، والحركة تفوز، فتقفز النفخة. الدخان متماثل أصلاً
+   حول محوره، فلا معنى لعكسه. */
+
+/* العزل صار غير مشروط في base.css عبر .ltr، ومطبَّقاً في الـ JSX.
+   القاعدة المشروطة القديمة كانت تعمل في العربية فقط، ثم تنكسر في
+   الفرنسية حيث تظهر نفس الأرقام والروابط. */
+.metric__value,
+.rail__index,
+.header__clock,
+.win__url,
+.mp__addr,
+.lang__code,
+code {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* العربية تحتاج هواءً أكثر بين الأسطر ولا تحتمل تباعد الحروف إطلاقاً. */
+:root:lang(ar) body { line-height: 1.75; }
+
+:root:lang(ar) .h1,
+:root:lang(ar) .h2,
+:root:lang(ar) .section__title,
+:root:lang(ar) .hero__title,
+:root:lang(ar) .btn__text {
+  letter-spacing: 0;
+  word-spacing: 0.02em;
+}
+
+:root:lang(ar) .mono,
+:root:lang(ar) .eyebrow,
+:root:lang(ar) .section__index {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn__smoke { display: none; }
+  .btn__fog { transition: none; }
+  .btn__warp { transition: none; }
+  .lang__warp { filter: none !important; }
+}
+
+/* ==========================================================================
+   ROUND 26 · الاسم
+   ========================================================================== */
+
+/* الاسم لاتيني في اللغات الثلاث: اتجاهه ملكه. */
+.ln {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* في العربية يُعرَض الاسم كاملاً بلا تقطيع (الحارس في useLetterEngine).
+   هذه ليست حالة عطب — هي الحالة الصحيحة، ويجب أن تبدو مقصودة. */
+.ln--plain {
+  font-variation-settings: var(--vf-display);
+}
+
+/* العنوان العربي محاذاته للبداية المنطقية، لا لليسار المطلق. */
+[dir="rtl"] .hero__title,
+[dir="rtl"] .mhero__title {
+  text-align: start;
+}
+
+/* ==========================================================================
+   ROUND 26 · مادة التحكّم — سطح المكتب
+
+   قانون واحد: كل قاعدة تلمس الخلفية تلمس الحبر معها.
+   ========================================================================== */
+
+/* --- 1. إلغاء ما أفسد الجولة 25 ------------------------------------------ */
+
+/* القاعدة المشتركة القديمة كانت تطلي لوحاً ملكياً وتترك الحبر أسود. تُلغى هنا
+   بالكامل، ثم يُعاد بناء كل زر على حدة في PART C. */
+.header__cta,
+.win__btn,
+.case__close,
+.mp__action {
+  background-image: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* --- 2. المادة -------------------------------------------------------- */
+
+.btn__warp,
+.ctl {
+  /* الزوج الافتراضي: ورق. كل زر يريد الملكي يقولها صراحة بـ .is-royal */
+  --veil: var(--ctl-veil-paper);
+  --ink: var(--ctl-ink-paper);
+  --ctl-h: var(--ctl-h-md);
+  --ctl-pad: var(--ctl-pad-md);
+  --ctl-r: var(--ctl-r-md);
+  --ctl-fog: var(--ctl-fog-md);
+
+  position: relative;
+  display: inline-flex;
+  /* هذا السطر وحده يقتل المستطيل العائم داخل الزر: اللوح يملأ ما يسكنه. */
+  flex: 1 1 auto;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55em;
+  min-height: var(--ctl-h);
+  padding-inline: var(--ctl-pad);
+  border: 0;
+  border-radius: var(--ctl-r);
+  overflow: hidden;
+  isolation: isolate;
+
+  /* الزوج: لوح وحبر في قاعدة واحدة */
+  color: var(--ink);
+  background-color: rgba(var(--rr-rgb), 0.06);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: calc(10% + var(--e, 0) * 72%) 50%;
+
+  -webkit-backdrop-filter: var(--btn-glass);
+  backdrop-filter: var(--btn-glass);
+  box-shadow:
+    inset 0 0 0 1px var(--ctl-edge),
+    inset 0 1px 0 rgba(247, 236, 216, 0.12),
+    0 6px 18px rgba(37, 5, 8, 0.08);
+
+  transition:
+    background-position 0.6s var(--e-out),
+    box-shadow 0.3s var(--e-out),
+    color 0.3s var(--e-out),
+    scale 0.18s var(--e-out);
+}
+
+/* حجاب الورق: الخيط وشاح تحته، ليس طلاءً فوقه. */
+.btn__warp::before,
+.ctl::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--surface);
+  opacity: var(--veil);
+  transition: opacity 0.36s var(--e-out);
+}
+
+/* النص فوق الحجاب دائماً. */
+.btn__label,
+.ctl > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* الزوجان الوحيدان المسموح بهما -------------------------------------- */
+
+.is-paper {
+  --veil: var(--ctl-veil-paper);
+  --ink: var(--ctl-ink-paper);
+}
+
+.is-royal {
+  --veil: var(--ctl-veil-royal);
+  --ink: var(--ctl-ink-royal);
+}
+
+/* الملكي يحتاج قاعدة أدكن تحت الخيط حتى يثبت التباين مهما انزلق الخيط. */
+.is-royal.btn__warp,
+.ctl.is-royal {
+  background-color: rgba(var(--rr-rgb), 0.92);
+  box-shadow:
+    inset 0 0 0 1px var(--ctl-edge-lit),
+    inset 0 1px 0 rgba(247, 236, 216, 0.16),
+    0 8px 22px rgba(37, 5, 8, 0.18);
+  text-shadow: var(--halo-royal);
+}
+
+/* الهالة: متناسبة مع الزر، لا ثابتة بـ 10px. */
+.btn__fog {
+  position: absolute;
+  inset: calc(var(--ctl-fog, 7px) * -1);
+  z-index: -1;
+  border-radius: calc(var(--ctl-r, 12px) + var(--ctl-fog, 7px));
+  pointer-events: none;
+  opacity: calc(0.28 + var(--e, 0) * 0.6);
+  filter: blur(calc(var(--ctl-fog, 7px) + 2px));
+  background: var(--btn-fog);
+  transition: opacity 0.4s var(--e-out);
+}
+
+/* الإطار الخارجي للزر: صندوق شفّاف لا يرسم شيئاً بنفسه. */
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: 500 0.95rem/1 var(--font-sans);
+  text-decoration: none;
+  cursor: pointer;
+  isolation: isolate;
+}
+
+/* التركيز والضغط — مرة واحدة لكل الموقع. */
+.btn:focus-visible { outline: none; }
+.btn:focus-visible .btn__warp,
+.ctl:focus-visible {
+  outline: 2px solid rgba(var(--gold-rgb), 0.85);
+  outline-offset: 3px;
+}
+
+.btn:active .btn__warp,
+.ctl:active { scale: 0.985; }
+
+/* تدرّج المقاسات */
+.btn--sm .btn__warp { --ctl-h: var(--ctl-h-sm); --ctl-pad: var(--ctl-pad-sm); --ctl-r: var(--ctl-r-sm); --ctl-fog: var(--ctl-fog-sm); }
+.btn--lg .btn__warp { --ctl-h: var(--ctl-h-lg); --ctl-pad: var(--ctl-pad-lg); --ctl-r: var(--ctl-r-lg); --ctl-fog: var(--ctl-fog-lg); }
+
+/* الأيقونة داخل الزر ترث الحبر، ولا تُعكس في العربية. */
+.btn__icon {
+  display: inline-flex;
+  color: currentColor;
+  transition: translate 0.28s var(--e-out);
+}
+.btn:hover .btn__icon { translate: 2px -2px; }
+
+/* ==========================================================================
+   ROUND 26 · كل زر على حدة — سطح المكتب
+   ========================================================================== */
+
+/* --- 1 · الزر الرئيسي: «مشاهدة الأعمال» ------------------------------
+   أدكن شيء في الصفحة، لأنه الشيء الوحيد الذي أريد أن يُضرَب. */
+.btn--primary .btn__warp {
+  --veil: var(--ctl-veil-royal);
+  --ink: var(--ctl-ink-royal);
+  background-color: rgba(var(--rr-rgb), 0.94);
+  box-shadow:
+    inset 0 0 0 1px var(--ctl-edge-lit),
+    inset 0 1px 0 rgba(247, 236, 216, 0.18),
+    0 10px 26px rgba(37, 5, 8, 0.22);
+  text-shadow: var(--halo-royal);
+}
+.btn--primary .btn__fog { opacity: calc(0.5 + var(--e, 0) * 0.5); }
+
+/* --- 2 · الزر الثانوي: البريد -------------------------------------------
+   ورق مع حافة ذهبية. مقروء تماماً في السكون لأنه يحمل عنواناً. */
+.btn--line .btn__warp {
+  --veil: 0.93;
+  --ink: var(--text);
+  background-color: rgba(var(--rr-rgb), 0.04);
+}
+
+/* الزر العاري: لا لوح أبداً، خيط فقط. */
+.btn--ghost .btn__warp {
+  --veil: 0;
+  --ink: var(--text-dim);
+  background-color: transparent;
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+  padding-inline: 0.35rem;
+}
+.btn--ghost .btn__fog { display: none; }
+.btn--ghost .btn__warp::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0.35rem;
+  bottom: 9px;
+  height: 1px;
+  border-radius: 1px;
+  background-image: var(--thread-line);
+  scale: var(--e, 0) 1;
+  transform-origin: center;
+  transition: scale 0.4s var(--e-out);
+}
+.btn--ghost:hover .btn__warp::after { scale: 1 1; }
+
+/* --- 3 · شارة الحالة في الرأس ------------------------------------------
+   هذا هو الزر غير المقروء في الصورة. اللوح ملكي فالحبر فاتح، ومعه
+   نقطة حيّة تقول «متاح» بلا أي إيموجي. */
+.header__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--ctl-h-sm);
+  padding-inline: var(--ctl-pad-sm);
+  border-radius: var(--ctl-r-sm);
+  color: var(--on-royal);
+  background-color: rgba(var(--rr-rgb), 0.93);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: 12% 50%;
+  -webkit-backdrop-filter: var(--btn-glass);
+  backdrop-filter: var(--btn-glass);
+  box-shadow:
+    inset 0 0 0 1px var(--ctl-edge-lit),
+    0 6px 16px rgba(37, 5, 8, 0.18);
+  text-decoration: none;
+  text-shadow: var(--halo-royal);
+  transition:
+    background-position 0.6s var(--e-out),
+    box-shadow 0.3s var(--e-out);
+}
+
+.header__cta::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold-lit);
+  box-shadow: 0 0 8px rgba(var(--gold-rgb), 0.8);
+}
+
+.header__cta:hover {
+  background-position: 72% 50%;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--gold-rgb), 0.6),
+    0 10px 24px rgba(37, 5, 8, 0.26);
+}
+
+/* --- 4 · روابط التنقل --------------------------------------------------
+   ليست أزراراً ولا تدّعي ذلك: كلمة وخيط ينمو تحتها. */
+.header__link {
+  min-height: var(--ctl-h-sm);
+  padding-inline: 0.55rem;
+  border-radius: var(--ctl-r-sm);
+  background: none;
+  color: var(--text-dim);
+  transition: color 0.26s var(--e-out);
+}
+.header__link:hover,
+.header__link[aria-current] { color: var(--text); }
+
+/* --- 5 · الاسم في الرأس ---------------------------------------------- */
+.header__mark {
+  background: none;
+  box-shadow: none;
+  color: var(--text);
+}
+
+/* --- 8 · فتح الموقع الحيّ ---------------------------------------------- */
+.win__open {
+  min-height: var(--ctl-h-md);
+  padding-inline: var(--ctl-pad-md);
+  border-radius: var(--ctl-r-md);
+  color: var(--on-royal);
+  background-color: rgba(var(--rr-rgb), 0.92);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: 14% 50%;
+  box-shadow: inset 0 0 0 1px var(--ctl-edge-lit), 0 8px 20px rgba(37, 5, 8, 0.18);
+  text-shadow: var(--halo-royal);
+}
+.win__open:hover { background-position: 74% 50%; }
+
+
+/* --- 11 · إغلاق دراسة الحالة ------------------------------------------- */
+.case__close {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 38px;
+  block-size: 38px;
+  padding: 0;
+  border-radius: var(--ctl-r-sm);
+  color: var(--on-royal);
+  background-color: rgba(var(--rr-rgb), 0.9);
+  box-shadow: inset 0 0 0 1px var(--ctl-edge-lit), 0 6px 16px rgba(37, 5, 8, 0.2);
+}
+.case__close:hover { background-color: rgba(var(--rr-rgb), 1); }
+
+/* --- 12 · لوحة البريد ---------------------------------------------------
+   العنوان دائماً لاتيني، ولهذا يأخذ .ltr في الـ JSX. */
+.mp__action {
+  min-height: var(--ctl-h-md);
+  padding-inline: var(--ctl-pad-md);
+  border-radius: var(--ctl-r-md);
+  color: var(--on-royal);
+  background-color: rgba(var(--rr-rgb), 0.92);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: 16% 50%;
+  box-shadow: inset 0 0 0 1px var(--ctl-edge-lit), 0 8px 20px rgba(37, 5, 8, 0.18);
+  text-shadow: var(--halo-royal);
+}
+.mp__action:hover { background-position: 76% 50%; }
+
+/* ==========================================================================
+   ROUND 26 · مبدّل اللغة — سطح المكتب
+   ========================================================================== */
+
+.lang { position: relative; display: inline-flex; }
+
+/* 6 · المبدّل: مربّع صغير بحرفين */
+.lang__btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 42px;
+  block-size: var(--ctl-h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--ctl-r-sm);
+  cursor: pointer;
+  isolation: isolate;
+  color: var(--text);
+  background-color: rgba(var(--rr-rgb), 0.05);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: 8% 50%;
+  -webkit-backdrop-filter: var(--btn-glass);
+  backdrop-filter: var(--btn-glass);
+  box-shadow: inset 0 0 0 1px var(--ctl-edge), 0 5px 14px rgba(37, 5, 8, 0.08);
+  transition:
+    background-position 0.55s var(--e-out),
+    color 0.3s var(--e-out),
+    box-shadow 0.3s var(--e-out);
+}
+
+.lang__code {
+  position: relative;
+  z-index: 2;
+  font: 600 0.76rem/1 var(--font-sans);
+  letter-spacing: 0.09em;
+  font-variant-numeric: tabular-nums;
+}
+
+.lang__btn:hover,
+.lang[data-open="true"] .lang__btn {
+  color: var(--on-royal);
+  background-color: rgba(var(--rr-rgb), 0.9);
+  background-position: 70% 50%;
+  box-shadow: inset 0 0 0 1px var(--ctl-edge-lit), 0 8px 20px rgba(37, 5, 8, 0.18);
+}
+
+.lang__btn:focus-visible {
+  outline: 2px solid rgba(var(--gold-rgb), 0.85);
+  outline-offset: 3px;
+}
+
+.lang__fog {
+  position: absolute;
+  inset: calc(var(--ctl-fog-sm) * -1);
+  z-index: -1;
+  border-radius: calc(var(--ctl-r-sm) + var(--ctl-fog-sm));
+  pointer-events: none;
+  opacity: calc(0.2 + var(--e, 0) * 0.55);
+  filter: blur(6px);
+  background: var(--btn-fog);
+  transition: opacity 0.4s var(--e-out);
+}
+
+/* 7 · القائمة: تفتح من الحافة المنطقية، فتصحّ في اللغتين */
+.lang__menu {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 60;
+  min-inline-size: 168px;
+  padding: 6px;
+  border-radius: var(--ctl-r-md);
+  background: color-mix(in oklab, var(--surface) 92%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(130%);
+  backdrop-filter: blur(14px) saturate(130%);
+  box-shadow:
+    inset 0 0 0 1px var(--ctl-edge),
+    0 18px 40px rgba(37, 5, 8, 0.18);
+  animation: lang-in 0.28s var(--e-out) both;
+}
+
+@keyframes lang-in {
+  from { opacity: 0; translate: 0 -6px; scale: 0.985; }
+  to   { opacity: 1; translate: 0 0;    scale: 1; }
+}
+
+.lang__warp { display: grid; gap: 2px; }
+
+.lang__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  inline-size: 100%;
+  min-block-size: 38px;
+  padding-inline: 10px;
+  border: 0;
+  border-radius: var(--ctl-r-sm);
+  cursor: pointer;
+  text-align: start;
+  color: var(--text-dim);
+  background: transparent;
+  transition: background-color 0.22s var(--e-out), color 0.22s var(--e-out);
+}
+
+.lang__option:hover { color: var(--text); background-color: rgba(var(--rr-rgb), 0.07); }
+
+.lang__option[aria-selected="true"] {
+  color: var(--text);
+  background-color: rgba(var(--rr-rgb), 0.1);
+}
+
+/* المختار يُعرَف بنقطة ذهبية في الحافة المنطقية — لا بعلامة صح ولا إيموجي. */
+.lang__option[aria-selected="true"]::after {
+  content: "";
+  margin-inline-start: auto;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 8px rgba(var(--gold-rgb), 0.7);
+}
+
+.lang__option-code {
+  min-inline-size: 26px;
+  font: 600 0.72rem/1 var(--font-sans);
+  letter-spacing: 0.09em;
+  color: var(--rr);
+}
+
+.lang__option-name { font-size: 0.86rem; }
+
+/* ==========================================================================
+   ROUND 27 · الصورة الشخصية — سطح المكتب
+
+   الإطار يملك النسبة والصورة تُقصّ داخله. اللوح الورقي والحدّ الذهبي
+   وعلامتا الزاوية كلّها طبقات فوق الصورة، فلا تتحرّك مع حركة التمرير.
+   ========================================================================== */
+
+.about__media {
+  /* الإطار القديم كان يقصّ بالصدفة؛ الآن يقصّ بقرار. */
+  border-color: var(--line-mid);
+  box-shadow: var(--elev-2), inset 0 1px 0 var(--edge-lift);
+  border-radius: var(--radius-lg);
+}
+
+.portrait {
+  position: relative;
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--surface-3);
+  isolation: isolate;
+}
+
+.portrait__img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: var(--portrait-focus, 50% 24%);
+  opacity: 0;
+  transition: opacity var(--d-3) var(--e-out);
+}
+
+.portrait[data-state="ready"] .portrait__img { opacity: 1; }
+.portrait[data-state="failed"] .portrait__img { opacity: 0; }
+
+/* الهيكل: نفس مادة الانتظار المستعملة في بقية الموقع، لا دوّامة غريبة. */
+.portrait__skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background:
+    linear-gradient(
+      100deg,
+      var(--surface-3) 0%,
+      var(--surface-2) 42%,
+      var(--surface-3) 76%
+    );
+  background-size: 220% 100%;
+  animation: portrait-wait 1.5s var(--e-in-out) infinite;
+}
+
+.portrait[data-state="ready"] .portrait__skeleton { opacity: 0; animation: none; }
+
+@keyframes portrait-wait {
+  from { background-position: 120% 0; }
+  to { background-position: -60% 0; }
+}
+
+/* البديل: الحروف الأولى على ورق، يظهر فقط عند فشل الطلب. */
+.portrait__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 7vw, 5.5rem);
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.portrait[data-state="failed"] .portrait__fallback { opacity: 1; }
+.portrait[data-state="failed"] .portrait__skeleton { animation: none; }
+
+/* اللوح: تعتيم خفيف عند الحواف حتى لا تسيح الصورة في الورق. */
+.portrait__mat {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--gold-rgb), 0.22),
+    inset 0 0 70px rgba(37, 5, 8, 0.16);
+  background: linear-gradient(
+    to top,
+    rgba(37, 5, 8, 0.26),
+    transparent 42%
+  );
+}
+
+/* علامتا زاوية بالخيط الملكي. خطّان، لا زخرفة. */
+.portrait__tick {
+  position: absolute;
+  z-index: 3;
+  inline-size: 26px;
+  block-size: 26px;
+  pointer-events: none;
+  border: 1px solid rgba(var(--gold-rgb), 0.55);
+}
+
+.portrait__tick--a {
+  inset-block-start: 12px;
+  inset-inline-start: 12px;
+  border-block-end: 0;
+  border-inline-end: 0;
+}
+
+.portrait__tick--b {
+  inset-block-end: 12px;
+  inset-inline-end: 12px;
+  border-block-start: 0;
+  border-inline-start: 0;
+}
+
+.portrait__cap {
+  position: absolute;
+  z-index: 4;
+  inset-inline: 14px;
+  inset-block-end: 12px;
+  display: grid;
+  gap: 2px;
+  color: var(--on-royal);
+  text-shadow: var(--halo-invert);
+}
+
+.portrait__cap b {
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.portrait__cap span {
+  font: 500 0.7rem/1.5 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(247, 236, 216, 0.72);
+}
+
+/* ROUND 27 · وجه الشعار — سطح المكتب */
+.header__mark { align-items: center; gap: 0.55rem; }
+
+.mark__face {
+  inline-size: 28px;
+  block-size: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: var(--portrait-focus, 50% 24%);
+  box-shadow:
+    0 0 0 1px rgba(var(--gold-rgb), 0.42),
+    var(--elev-0);
+  background: var(--surface-3);
+}
+
+/* ==========================================================================
+   ROUND 27 · النوافذ — سطح المكتب
+   ========================================================================== */
+
+.win__btn {
+  border-radius: var(--win-r);
+  box-shadow:
+    var(--elev-2),
+    inset 0 1px 0 var(--edge-lift-royal);
+  transition:
+    border-color var(--d-2) var(--e-out),
+    box-shadow var(--d-2) var(--e-out),
+    translate var(--d-2) var(--e-out);
+}
+
+.win__btn:hover,
+.win__btn:focus-visible {
+  border-color: var(--win-tint);
+  box-shadow:
+    var(--elev-3),
+    inset 0 1px 0 var(--edge-lift-royal);
+  translate: 0 -3px;
+}
+
+.win__btn:active {
+  box-shadow:
+    var(--elev-1),
+    inset 0 1px 0 var(--edge-lift-royal);
+  translate: 0 -1px;
+}
+
+/* الشريط العلوي: خطّ ضوء تحت الحافة، ثم خطّ الفصل. طبقتان تجعلانه
+   يبدو منحوتاً في المادة لا مرسوماً عليها. */
+.win__chrome {
+  background: linear-gradient(
+    to bottom,
+    rgba(247, 236, 216, 0.05),
+    transparent
+  );
+  box-shadow: inset 0 -1px 0 var(--win-line);
+  border-bottom-color: transparent;
+}
+
+.win__url,
+.win__index {
+  text-shadow: var(--halo-invert);
+}
+
+/* اللوحة الداخلية: تعتيم محيطي خفيف حتى لا تلتصق الصورة بالحافة. */
+.win__pane {
+  position: relative;
+}
+
+.win__pane::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(247, 236, 216, 0.06),
+    inset 0 -60px 90px -60px rgba(0, 0, 0, 0.5);
+}
+
+/* التركيز بلوحة المفاتيح: حلقة ذهبية واضحة، لا خطّ المتصفّح الافتراضي. */
+.win__btn:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--elev-3),
+    inset 0 1px 0 var(--edge-lift-royal),
+    0 0 0 2px rgba(var(--gold-rgb), 0.55);
+}
+
+/* ROUND 27 · اللوحة الجانبية */
+.case__scrim {
+  background: var(--scrim);
+  backdrop-filter: blur(var(--scrim-blur));
+}
+
+.case__panel {
+  border-inline-start-color: rgba(var(--gold-rgb), 0.2);
+  box-shadow: var(--elev-panel);
+}
+
+/* الشريط العلوي الملتصق: كان يذوب في المحتوى عند التمرير؛ الآن يطفو فوقه. */
+.case__bar {
+  box-shadow:
+    inset 0 1px 0 var(--edge-lift),
+    0 1px 0 var(--line),
+    0 12px 24px -18px rgba(23, 20, 15, 0.5);
+}
+
+/* الصورة داخل اللوحة: إطار مرتفع مثل بقية النوافذ، لا مستطيل ملصق. */
+.case__hero {
+  border-radius: var(--win-r-sm);
+  box-shadow: var(--elev-1), inset 0 1px 0 var(--edge-lift);
+  overflow: hidden;
+}
+
+/* بطاقات الحقائق: ورق فوق ورق. خطّ ضوء واحد يكفي لفصلها. */
+.case__facts > div {
+  border-radius: var(--radius);
+  box-shadow: var(--elev-0), inset 0 1px 0 var(--edge-lift);
+}
+
+/* ROUND 27 · نافذة المعاينة وشاشة البداية */
+.pw {
+  border-radius: var(--win-r-sm);
+  box-shadow:
+    var(--elev-2),
+    inset 0 1px 0 var(--edge-lift-royal);
+  overflow: hidden;
+}
+
+.pw__frame {
+  border-radius: inherit;
+}
+
+.pw__wait {
+  text-shadow: var(--halo-invert);
+}
+
+.preloader__name {
+  text-shadow: var(--halo-invert);
+}
+
+.preloader__count {
+  text-shadow: var(--halo-invert);
+}
+
+.preloader__bar {
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(247, 236, 216, 0.08);
+  overflow: hidden;
+}
+
+.preloader__fill {
+  box-shadow: 0 0 18px rgba(var(--gold-rgb), 0.34);
+}
+
+/* ROUND 27 · احترام طلب السكون */
+@media (prefers-reduced-motion: reduce) {
+  .win__btn,
+  .win__btn:hover,
+  .win__btn:focus-visible,
+  .win__btn:active {
+    translate: none;
+  }
+}
+
+/* ==========================================================================
+   ROUND 27 · فيزياء الزر — سطح المكتب
+
+   ثلاث حالات لا أربع: ساكن يرتفع قليلاً، وممرور عليه يرتفع أكثر،
+   ومضغوط يغوص داخل الورق. الرابعة — المُعطّل — لا ترتفع أبداً.
+   ========================================================================== */
+
+.btn__warp,
+.ctl {
+  box-shadow:
+    var(--elev-0),
+    inset 0 1px 0 var(--edge-lift);
+  transition:
+    box-shadow var(--d-1) var(--e-out),
+    translate var(--d-1) var(--e-out),
+    background-color var(--d-2) var(--e-out),
+    color var(--d-2) var(--e-out);
+}
+
+/* الكثافة الملكية تأخذ خطّ ضوء دافئاً لا أبيض، وإلا ظهر كخدش. */
+.btn__warp.is-royal,
+.ctl.is-royal {
+  box-shadow:
+    var(--elev-1),
+    inset 0 1px 0 var(--edge-lift-royal),
+    inset 0 -1px 0 var(--edge-sink);
+}
+
+.btn:hover .btn__warp,
+.ctl:hover {
+  box-shadow:
+    var(--elev-1),
+    inset 0 1px 0 var(--edge-lift);
+  translate: 0 -1px;
+}
+
+.btn:hover .btn__warp.is-royal,
+.ctl.is-royal:hover {
+  box-shadow:
+    var(--elev-2),
+    inset 0 1px 0 var(--edge-lift-royal),
+    inset 0 -1px 0 var(--edge-sink);
+  translate: 0 -1px;
+}
+
+/* الضغط: الظلّ ينطفئ ويحلّ محلّه غوص داخلي. هذا وحده هو الفرق بين
+   زر يُضغط وصورة زر. */
+.btn:active .btn__warp,
+.ctl:active {
+  box-shadow:
+    inset 0 2px 5px rgba(37, 5, 8, 0.22),
+    inset 0 1px 0 var(--edge-sink);
+  translate: 0 1px;
+}
+
+/* التركيز: حلقة ذهبية مقروءة فوق الورق وفوق الأحمر معاً. */
+.btn:focus-visible .btn__warp,
+.ctl:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--elev-1),
+    inset 0 1px 0 var(--edge-lift),
+    0 0 0 2px rgba(var(--gold-rgb), 0.6);
+}
+
+/* التعطيل: حالة كاملة لا توجد اليوم في الموقع أصلاً.
+   بلا ارتفاع، بلا هالة، بلا دخان، ومؤشّر يقول ذلك قبل النقر. */
+.btn[disabled],
+.btn[aria-disabled="true"],
+.ctl[disabled],
+.ctl[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.52;
+  filter: saturate(0.6);
+}
+
+.btn[disabled] .btn__warp,
+.btn[aria-disabled="true"] .btn__warp,
+.ctl[disabled],
+.ctl[aria-disabled="true"] {
+  box-shadow: inset 0 0 0 1px var(--line-mid);
+  translate: none;
+}
+
+.btn[disabled] .btn__fog,
+.btn[aria-disabled="true"] .btn__fog,
+.btn[disabled] .btn__smoke,
+.btn[aria-disabled="true"] .btn__smoke {
+  opacity: 0;
+}
+
+/* ROUND 27 · هالة حبر الزر */
+.btn__warp.is-paper .btn__label,
+.ctl.is-paper {
+  text-shadow: var(--halo-ink);
+}
+
+.btn__warp.is-royal .btn__label,
+.ctl.is-royal {
+  text-shadow: var(--halo-royal);
+}
+
+/* الأيقونة تأخذ نفس المعاملة بـ drop-shadow لأنّ text-shadow لا يراها. */
+.btn__warp.is-royal .btn__icon,
+.ctl.is-royal .btn__icon {
+  filter: drop-shadow(0 1px 0 rgba(37, 5, 8, 0.45));
+}
+
+.btn__warp.is-paper .btn__icon,
+.ctl.is-paper .btn__icon {
+  filter: drop-shadow(0 1px 0 rgba(255, 253, 248, 0.5));
+}
+
+/* ROUND 27 · أزرار الأيقونة — سطح المكتب */
+.case__close,
+.lang__btn {
+  box-shadow: var(--elev-0), inset 0 1px 0 var(--edge-lift);
+  transition:
+    box-shadow var(--d-1) var(--e-out),
+    translate var(--d-1) var(--e-out),
+    background-color var(--d-2) var(--e-out);
+}
+
+.case__close:hover,
+.lang__btn:hover {
+  box-shadow: var(--elev-1), inset 0 1px 0 var(--edge-lift);
+  translate: 0 -1px;
+}
+
+.case__close:active,
+.lang__btn:active {
+  box-shadow: inset 0 2px 4px rgba(37, 5, 8, 0.2);
+  translate: 0 1px;
+}
+
+.case__close:focus-visible,
+.lang__btn:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--elev-1),
+    0 0 0 2px rgba(var(--gold-rgb), 0.6);
+}
+
+/* القائمة المنسدلة للغات هي نافذة صغيرة، فتأخذ ارتفاع النوافذ. */
+.lang__menu {
+  border-radius: var(--win-r-sm);
+  box-shadow: var(--elev-2), inset 0 1px 0 var(--edge-lift);
+}
+
+/* ROUND 27 · درجات الهالة — سطح المكتب */
+
+/* العناوين الكبيرة: وهج ذهبي خفيف مع الظلّ. */
+.hero__title,
+.sec__title,
+.case__title,
+.win__title,
+.numbers__value,
+.contact__title {
+  text-shadow: var(--halo-ink-strong);
+}
+
+/* الوسوم الأحادية المسافة: أخفّ درجة، لأنّ حروفها رقيقة ومتباعدة. */
+.sec__index,
+.win__url,
+.win__index,
+.case__crumb,
+.rail__index,
+.rail__label,
+.about__fact dt,
+.case__facts dt,
+.header__clock {
+  text-shadow: var(--halo-mono);
+}
+
+/* النصّ الجاري يرث القاعدة من body ولا يحتاج شيئاً، إلا داخل اللوحة
+   حيث يجلس على ورق أفتح من ورق الصفحة. */
+.case__panel {
+  text-shadow: var(--halo-ink);
+}
+
+/* ==========================================================================
+   ROUND 28 · البديل يُرى، والهيكل ينام
+   ========================================================================== */
+
+.portrait__fallback {
+  color: var(--text-dim);
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+/* الهيكل يتحرّك أثناء الانتظار فقط. في النجاح والفشل حركة دائمة بلا سبب. */
+.portrait[data-state="failed"] .portrait__skeleton {
+  opacity: 0;
+  animation: none;
+}
+
+/* لا تلميح دائم على الصورة: يضعه المُطلِق ويمسحه (STEP 3). */
+.portrait__img { will-change: auto; }
+
+/* ==========================================================================
+   ROUND 28 · المرشّحات تثبُت، والحقل يقود ما هو مجّاني فقط
+
+   المسموح لـ --e أن يقوده بعد اليوم: opacity وtransform فقط.
+   الممنوع: filter وborder-radius وbackground-position.
+   ========================================================================== */
+
+.win__poster {
+  filter: grayscale(1) contrast(1.06);
+  transition:
+    filter var(--d-2) linear,
+    opacity var(--d-2) linear;
+}
+
+.win__poster[data-fit="contain"] {
+  filter: grayscale(0.85) contrast(1.02);
+}
+
+.win__btn:hover .win__poster,
+.win__btn:focus-visible .win__poster,
+.win__btn:hover .win__poster[data-fit="contain"],
+.win__btn:focus-visible .win__poster[data-fit="contain"] {
+  filter: grayscale(0) contrast(1.02);
+}
+
+/* الشكل لا يتغيّر مع الحقل. تغيير نصف القطر يُلغي التنقيط المخزَّن للنافذة كلّها. */
+.win__btn {
+  border-radius: var(--radius-lg);
+  transition:
+    border-color var(--d-3) var(--e-out),
+    transform var(--d-3) var(--e-out),
+    box-shadow var(--d-3) var(--e-out);
+}
+
+/* اللون يبقى يتبع الحقل: color-mix تغيير حبر لا تغيير هندسة. */
+
+/* الخيط تحت الزر لا ينزلق مع كل خطوة حقل: موضع ثابت. */
+.ctl {
+  background-position: 46% 50%;
+}
+
+/* طبقة الخلط فوق الملصق: تبقى، لكن بلا انتقال يُعيد تركيبها نصف ثانية كاملة. */
+.win__wash {
+  transition: opacity var(--d-2) linear;
+}
+
+/* ==========================================================================
+   ROUND 28 · ميزانية الزجاج
+
+   يبقى الزجاج في ثلاثة مواضع فقط، وكلّها أسطح واحدة كبيرة يظهر فيها
+   الأثر: الرأس المُصمَّت، وحجاب دراسة الحالة، والقائمة المنسدلة.
+   ويُرفع عن كل ما يتكرّر: الأزرار والمفاتيح.
+   ========================================================================== */
+
+.btn__warp,
+.ctl,
+.lang__btn,
+.lang__btn > .btn__warp,
+.header__cta,
+.mp__action {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* ما فُقد من شفافية يُعوّض بلوح أكثف قليلاً، لا بلون جديد. */
+.ctl.is-paper,
+.btn--paper .btn__warp {
+  background-color: rgba(255, 253, 248, 0.94);
+}
+
+/* الرأس: ضباب أخفّ. 9px و 6px لا يفترقان بصرياً، ويفترقان في الكلفة. */
+.header[data-solid] {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* الشريط داخل لوحة دراسة الحالة فوق لوح معتِم أصلاً: الزجاج هنا لا يُرى. */
+.case__bar {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* لا تلميح دائم بمرشّح: يُبقي طبقة منفصلة في الذاكرة طوال عمر الصفحة. */
+.lang__warp {
+  will-change: auto;
+}
+
+/* ==========================================================================
+   ROUND 28 · الدخول
+
+   مسافة أقصر (22px → 14px) تعني مدّة أقصر بلا أن تبدو مقطوعة. والضباب
+   يذهب تماماً: لا أحد لاحظ أنّه كان هناك، والجميع لاحظ ثمنه.
+   ========================================================================== */
+
+[data-reveal] {
+  transition:
+    opacity var(--d-2) var(--e-out),
+    translate var(--d-2) var(--e-out),
+    scale var(--d-2) var(--e-out),
+    clip-path var(--d-3) var(--e-out);
+}
+
+[data-reveal="up"] { translate: 0 14px; }
+[data-reveal="down"] { translate: 0 -14px; }
+
+[data-reveal="blur"] {
+  filter: none;
+  scale: 0.985;
+  opacity: 0;
+}
+
+[data-reveal="blur"].is-in {
+  scale: 1;
+  opacity: 1;
+}
+
+[data-reveal].is-in {
+  translate: 0 0;
+}
+
+
+
+
+/* ==========================================================================
+   ROUND 28.1 · الصورة تملأ إطارها
+
+   كانت `block-size: 100%` تستند إلى ارتفاع مشتقّ من `aspect-ratio`، وهو ارتفاع
+   لا تستند إليه النسب المئوية بثقة. النتيجة: صورة بنسبتها الأصلية في أعلى
+   إطار طويل. الطبقة المطلقة تحسم المسألة بلا حساب.
+
+   وترتيب الرسم يُصحَّح في السطر نفسه: طبقة الانتظار مطلقة بـ z-index 0، وكانت
+   الصورة جارية بلا z-index، أي تحتها. الآن الصورة عند 1: فوق الانتظار، وتحت
+   اللوح (2) والعلامتين (3) والتسمية (4).
+   ========================================================================== */
+
+.portrait__img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: var(--portrait-focus, 50% 24%);
+}
+
+/* ==========================================================================
+   ROUND 30 · الإطار: صورة واحدة حتّى الحواف، والتسمية فوقها
+   -------------------------------------------------------------------------
+   قبل: تسمية في زاوية، فإن لم تملأ الصورة المربّع ظهر شريط ورق أسفلها.
+   بعد: التسمية تعيش على الصورة، وأرضية الإطار حبر ملكي لا ورق مكشوف.
+   ========================================================================== */
+
+.portrait {
+  background: var(--orn-ink);
+}
+
+.portrait__cap {
+  inset-inline: 0;
+  inset-block-end: 0;
+  padding: 3.4rem 16px 14px;
+  background: linear-gradient(
+    to top,
+    rgba(37, 5, 8, 0.7) 0%,
+    rgba(37, 5, 8, 0.34) 44%,
+    rgba(37, 5, 8, 0) 100%
+  );
+}
+
+/* الحصيرة كانت تضاعف التعتيم أسفل الصورة مع التسمية. واحد يكفي. */
+.portrait__mat {
+  opacity: 0.55;
+}
+
+/* حالة الفشل: لوحة مقصودة، لا صندوق منسيّ. الحروف في المركز والمربّع ممتلئ. */
+.portrait[data-state="failed"] {
+  background:
+    radial-gradient(120% 90% at 50% 18%, rgba(var(--gold-rgb), 0.1), transparent 62%),
+    var(--orn-ink);
+}
+
+/* ==========================================================================
+   ROUND 30 · النوافذ: لا إطار داخلي، الموقع يلمس الحواف
+   -------------------------------------------------------------------------
+   المبدأ: النافذة سطح واحد مرفوع عن الورق بظلّ ووهج، وليست صندوقاً
+   داخل صندوق داخل إطار. كلّ حدّ داخلي يُحذف، والعمق يأتي من الخارج.
+   ========================================================================== */
+
+/* 1 · الجسم: بلا حدّ، والعمق ظلّ خارجي ووهج على الجانبين. */
+.win__btn {
+  position: relative;
+  border: 0;
+  border-radius: var(--win-r);
+  box-shadow:
+    0 0 0 1px var(--edge-sink),
+    var(--elev-3),
+    -26px 0 52px -30px rgba(var(--rr-rgb), 0.55),
+    26px 0 52px -30px rgba(var(--rr-rgb), 0.55);
+  transition:
+    box-shadow var(--d-3) var(--e-out),
+    border-radius var(--d-2) var(--e-out);
+}
+
+.win__btn:hover,
+.win__btn:focus-visible {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px rgba(var(--gold-rgb), 0.22),
+    var(--elev-3),
+    -34px 0 68px -30px rgba(var(--rr-rgb), 0.72),
+    34px 0 68px -30px rgba(var(--rr-rgb), 0.72);
+}
+
+/* 2 · الشريط العلوي يطفو فوق الموقع بدل أن يدفعه للأسفل. لا يأخذ مكاناً،
+      فلا يبقى هامش فوق المعاينة. */
+.win__chrome {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 4;
+  padding: 0.6rem 0.95rem;
+  border-bottom: 0;
+  border-radius: var(--win-r) var(--win-r) 0 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(37, 5, 8, 0.66) 0%,
+    rgba(37, 5, 8, 0.28) 62%,
+    rgba(37, 5, 8, 0) 100%
+  );
+  box-shadow: none;
+  pointer-events: none;
+}
+
+/* 3 · اللوحة: مشبك معلن بعمود واحد وصفّين. في لقطاتك انضغط عمود النصّ إلى
+      نحو ستّين بكسلاً وتداخل مع سطر الأسفل؛ إعلان المقاس يمنع ذلك مهما كان
+      المحتوى. والحشوة العلوية تترك مكاناً للشريط الطافي. */
+.win__pane {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  align-content: stretch;
+  padding-block-start: calc(var(--s-6) + 1.6rem);
+}
+
+.win__copy {
+  position: relative;
+  z-index: 2;
+  align-self: end;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.win__foot {
+  position: relative;
+  z-index: 2;
+  align-self: end;
+  gap: var(--s-5);
+  border-top-color: rgba(247, 236, 216, 0.1);
+}
+
+.win__sub {
+  min-inline-size: 0;
+}
+
+.win__meta {
+  min-inline-size: 0;
+}
+
+/* 4 · طبقة الموقع الحيّ: تملأ النافذة إلى حوافها. حذفُ الصندوق المدوّر والظلّ
+      الداخلي اللذين أضفتهما في الجولة 27، ومدّ بكسل واحد خارج الحدّ لابتلاع
+      الشريط الناتج عن تقريب التحجيم. */
+.pw {
+  inset: -1px;
+  z-index: 0;
+  border-radius: inherit;
+  box-shadow: none;
+}
+
+.pw__frame {
+  border-radius: 0;
+}
+
+/* 5 · التعتيم المحيطي يبقى لأجل قراءة النصّ، لكنّه يرتفع فوق الموقع الحيّ لا تحته،
+      ويتركّز في الأسفل حيث يجلس العنوان. */
+.win__pane::after {
+  z-index: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(247, 236, 216, 0.06),
+    inset 0 -120px 120px -90px rgba(37, 5, 8, 0.86);
+}
+
+/* 6 · الملصق الساكن يبقى أسفل الطبقة الحيّة، ويملأ النافذة هو الآخر بلا هامش. */
+.win__poster[data-fit="contain"] {
+  inset: 0;
+}
+
+/* ==========================================================================
+   ROUND 30 · لون زرّ اللغة
+   ========================================================================== */
+.lang__code,
+.lang__btn {
+  color: var(--on-royal);
+  text-shadow: var(--halo-invert);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.lang__btn[aria-expanded="true"],
+.lang__btn:hover {
+  color: var(--gold);
+}
+/* ==========================================================================
+   ROUND 31 · النافذة سطح واحد
+   -------------------------------------------------------------------------
+   كلّ قاعدة هنا تبدأ بـ .win عن قصد. الأسماء win__btn وwin__copy
+   عامّة بما يكفي لأن يعيد أحد تعريفها يوماً لزرّ آخر؛ الأسلاف
+   .win يجعل النافذة تربح دائماً دون حاجة إلى important.
+   ========================================================================== */
+
+/* 1 · الجسم: بلا حشوة وبلا خيط ملوّن. العمق من الخارج: ظلّ ثمّ وهج جانبي. */
+.win .win__btn {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--win-r);
+  background-color: var(--win-ink);
+  background-image: none;
+  color: var(--on-invert);
+  box-shadow:
+    0 0 0 1px var(--edge-sink),
+    inset 0 1px 0 rgba(247, 236, 216, 0.06),
+    var(--elev-3),
+    -30px 0 60px -34px rgba(var(--rr-rgb), 0.6),
+    30px 0 60px -34px rgba(var(--rr-rgb), 0.6);
+  transition:
+    box-shadow var(--d-3) var(--e-out),
+    translate var(--d-2) var(--e-out);
+}
+
+.win .win__btn:hover,
+.win .win__btn:focus-visible {
+  background-color: var(--win-ink);
+  background-image: none;
+  translate: 0 -2px;
+  box-shadow:
+    0 0 0 1px rgba(var(--gold-rgb), 0.24),
+    inset 0 1px 0 rgba(247, 236, 216, 0.1),
+    var(--elev-3),
+    -40px 0 84px -34px rgba(var(--rr-rgb), 0.78),
+    40px 0 84px -34px rgba(var(--rr-rgb), 0.78);
+}
+
+/* 2 · كتلة النصّ نصّ، لا مربّع أيقونة. */
+.win .win__copy {
+  display: grid;
+  gap: 0.5rem;
+  place-items: stretch;
+  inline-size: auto;
+  block-size: auto;
+  min-inline-size: 0;
+  max-inline-size: 62ch;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--on-invert);
+  translate: none;
+}
+
+.win .win__copy:hover,
+.win .win__copy:focus-visible {
+  background: none;
+  box-shadow: none;
+  translate: none;
+  color: var(--on-invert);
+}
+
+/* 3 · الشريط: سطر معلومات، لا هيكل نافذة نظام. */
+.win .win__chrome {
+  grid-template-columns: auto 1fr auto;
+  gap: 1rem;
+  padding: 0.62rem 1.05rem;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.win .win__index {
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+  filter: none;
+}
+
+.win .win__url { color: var(--on-invert-dim); }
+
+.win .win__live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  color: var(--on-invert-faint);
+  opacity: 0.4;
+  transition: opacity var(--d-2) var(--e-out), color var(--d-2) var(--e-out);
+}
+
+.win .win__dot {
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.win .win__btn:has(.pw[data-state="live"]) .win__live {
+  color: var(--gold);
+  opacity: 1;
+}
+
+.win .win__btn:has(.pw[data-state="live"]) .win__dot {
+  background: var(--gold-lit);
+  box-shadow: 0 0 10px rgba(var(--gold-rgb), 0.85);
+}
+
+/* 4 · الموقع الحيّ بألوانه الحقيقية. الغلالة الملوّنة للملصق الساكن وحده:
+      موقع حيّ مصبوغ بلون النافذة يبدو لقطة مفلترة، لا موقعاً. */
+.win .pw[data-state="live"] ~ .win__wash { opacity: 0; }
+
+/* 5 · بدل الظلّ الداخلي الثقيل الذي يُعتِم الجوانب: ستارة سفلية واحدة
+      تحمل النصّ وتترك أعلى النافذة صافياً. */
+.win .win__pane::after {
+  box-shadow: none;
+  background: linear-gradient(
+    to top,
+    rgba(37, 5, 8, 0.94) 0%,
+    rgba(37, 5, 8, 0.72) 18%,
+    rgba(37, 5, 8, 0.26) 42%,
+    rgba(37, 5, 8, 0) 62%
+  );
+}
+
+/* 6 · اللوحة: الشريط يطفو، فالمساحة العلوية له وحده. */
+.win .win__pane {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  gap: var(--s-5);
+  min-height: 27rem;
+  padding: var(--s-6);
+  padding-block-start: calc(var(--s-6) + 1.4rem);
+}
+
+.win .win__sub {
+  max-inline-size: 46ch;
+  min-inline-size: 0;
+}
+
+.win .win__foot {
+  gap: var(--s-5);
+  border-top-color: rgba(247, 236, 216, 0.12);
+}
+
+/* --- the contact pair, and the one download in the site ------------------ */
+
+/* Mail and WhatsApp at the same weight. Two columns while there is room, one
+   when there is not; no media-query rewrite of either plate's internals. */
+.contact__pair {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: start;
+  gap: var(--s-5);
+}
+
+@media (max-width: 1100px) {
+  .contact__pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* WhatsApp plate. Everything here is a colour or a border change on hover and
+   focus: no transform, no filter, no blur. It cannot cost a frame. */
+.wp {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-4);
+  border: 1px solid rgba(var(--gold-rgb), 0.26);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    background-color 0.25s var(--e-out),
+    border-color 0.25s var(--e-out);
+}
+
+.wp:hover,
+.wp:focus-visible {
+  background: var(--surface-2);
+  border-color: var(--accent);
+}
+
+.wp__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid rgba(var(--gold-rgb), 0.28);
+  border-radius: 50%;
+  color: var(--accent);
+}
+
+.wp__copy {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.wp__label {
+  font-weight: 600;
+}
+
+.wp__value {
+  font: 500 0.82rem/1.2 var(--font-mono);
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+}
+
+.wp__go {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: var(--text-faint);
+  transition: color 0.25s var(--e-out);
+}
+
+.wp:hover .wp__go,
+.wp:focus-visible .wp__go {
+  color: var(--accent);
+}
+
+.wp__hint {
+  font: 500 0.64rem/1 var(--font-mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ── The CV download ────────────────────────────────────────────────────────
+   One plate that names the file, and a vertical rail with three cells: AR, EN
+   and FR. Two glyphs in every locale, so the control cannot change shape when
+   the site changes language, and the codes are already what the file is called.
+
+   THE RAIL IS THE CONTROL. A hairline runs down the inline-start edge and one
+   lit segment - the glider - rides it. The glider rests on the language the
+   site is in (data-rest, written by the component) and slides to whichever
+   cell you point at (:has, written here). So the control answers two questions
+   at once, and the only property that moves is translateY on one composited
+   layer. Nothing about pointing at a cell reaches React.
+
+   THE ORDER OF THE TWO GROUPS BELOW DOES NOT MATTER. The :has rules carry a
+   higher specificity than the data-rest rules by construction, so intent always
+   beats rest. They are written rest-first for reading, not for cascade. */
+.cv {
+  position: relative;
+  display: inline-grid;
+  gap: var(--s-4);
+  min-width: min(23rem, 100%);
+  padding: var(--s-4);
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--text);
+  transition:
+    border-color 0.28s var(--e-out),
+    background-color 0.28s var(--e-out);
+}
+
+.cv:hover,
+.cv:focus-within {
+  border-color: var(--gold-hair);
+  background: var(--surface);
+}
+
+.cv__head {
+  display: inline-grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.cv__mark {
+  display: inline-flex;
+  color: var(--accent);
+}
+
+.cv__copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.cv__label {
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.cv__meta {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* Three rows of equal height, and the rail in the gutter beside them.
+   --cv-cells is declared here rather than in tokens.css because it is not a
+   design decision, it is the number of children this one control has; the
+   glider divides the rail by it. */
+.cv__seg {
+  --cv-cells: 3;
+  position: relative;
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  padding-inline-start: var(--s-4);
+}
+
+.cv__rail {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(var(--rr-rgb), 0) 0%,
+    rgba(var(--rr-rgb), 0.5) 20%,
+    rgba(var(--rr-rgb), 0.5) 80%,
+    rgba(var(--rr-rgb), 0) 100%
+  );
+  pointer-events: none;
+}
+
+/* One third of the rail, red at the top edge and gold at the bottom, moved
+   with translateY and nothing else. The cubic-bezier overshoots deliberately:
+   the segment arrives, passes very slightly, and settles - which is what makes
+   it read as a physical object on a track rather than a highlight. */
+.cv__glider {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: calc(100% / var(--cv-cells));
+  background: linear-gradient(
+    180deg,
+    rgba(var(--rr-rgb), 0) 0%,
+    var(--rr-lit) 28%,
+    var(--gold) 72%,
+    rgba(var(--gold-rgb), 0) 100%
+  );
+  transform: translateY(0%);
+  transition: transform 0.5s cubic-bezier(0.37, 1.95, 0.66, 0.56);
+}
+
+/* The bloom. A pseudo-element on the same composited layer, with a fixed blur
+   radius, so the glider travelling does not re-rasterise it. */
+.cv__glider::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -1px;
+  top: 50%;
+  width: 3px;
+  height: 62%;
+  transform: translateY(-50%);
+  background: var(--gold-lit);
+  filter: blur(7px);
+  opacity: 0.8;
+}
+
+/* The wash that reaches into the row the glider is on. Direction-aware: a
+   gradient angle cannot be written logically, so RTL gets its own rule. */
+.cv__glider::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  width: 130px;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--gold-rgb), 0.13) 0%,
+    rgba(var(--gold-rgb), 0) 100%
+  );
+  pointer-events: none;
+}
+
+[dir="rtl"] .cv__glider::after {
+  background: linear-gradient(
+    270deg,
+    rgba(var(--gold-rgb), 0.13) 0%,
+    rgba(var(--gold-rgb), 0) 100%
+  );
+}
+
+/* Rest: the language the site is in. */
+.cv__seg[data-rest="0"] .cv__glider {
+  transform: translateY(0%);
+}
+
+.cv__seg[data-rest="1"] .cv__glider {
+  transform: translateY(100%);
+}
+
+.cv__seg[data-rest="2"] .cv__glider {
+  transform: translateY(200%);
+}
+
+/* Intent: the cell you are pointing at, tabbed to, or waiting on. Higher
+   specificity than the rest rules, so it wins wherever both apply. If :has is
+   unsupported the glider simply stays on the resting cell - the control still
+   works, it just stops narrating. */
+.cv__seg:has(
+    .cv__opt:nth-of-type(1):is(
+        :hover,
+        :focus-visible,
+        [data-state="busy"],
+        [data-state="done"]
+      )
+  )
+  .cv__glider {
+  transform: translateY(0%);
+}
+
+.cv__seg:has(
+    .cv__opt:nth-of-type(2):is(
+        :hover,
+        :focus-visible,
+        [data-state="busy"],
+        [data-state="done"]
+      )
+  )
+  .cv__glider {
+  transform: translateY(100%);
+}
+
+.cv__seg:has(
+    .cv__opt:nth-of-type(3):is(
+        :hover,
+        :focus-visible,
+        [data-state="busy"],
+        [data-state="done"]
+      )
+  )
+  .cv__glider {
+  transform: translateY(200%);
+}
+
+/* A cell. The code is pinned to the inline start so the tick can replace it
+   without moving the size on the other end of the row. */
+.cv__opt {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-3);
+  min-height: var(--ctl-h-sm);
+  padding: 0.35rem var(--s-3);
+  color: var(--text-faint);
+  text-decoration: none;
+  transition: color 0.24s var(--e-out);
+}
+
+.cv__opt:hover,
+.cv__opt:focus-visible {
+  color: var(--gold-lit);
+}
+
+/* The language the site is currently in. Weight, not a fill: it says where you
+   are without competing with hover. */
+.cv__opt[data-current="true"] {
+  color: var(--text);
+}
+
+.cv__opt-code {
+  min-width: 2.2rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  transition: opacity 0.18s var(--e-out);
+}
+
+.cv__opt-size {
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  opacity: 0.7;
+}
+
+/* The tick sits exactly where the code was and cross-fades with it. Opacity
+   only, so a finished download costs no layout at all. */
+.cv__opt-done {
+  position: absolute;
+  inset-inline-start: var(--s-3);
+  top: 50%;
+  display: inline-flex;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.18s var(--e-out);
+}
+
+.cv__opt[data-state="busy"] .cv__opt-code {
+  opacity: 0.55;
+}
+
+.cv__opt[data-state="done"] {
+  color: var(--gold);
+}
+
+.cv__opt[data-state="done"] .cv__opt-code {
+  opacity: 0;
+}
+
+.cv__opt[data-state="done"] .cv__opt-done {
+  opacity: 1;
+}
+
+.cv__opt[data-state="failed"] .cv__opt-code {
+  opacity: 0.45;
+}
+
+/* Progress, as a line that sweeps under the cell. transform and opacity only:
+   it cannot cost layout, and it repaints two pixels of its own row. */
+.cv__opt-line {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+.cv__opt[data-state="busy"] .cv__opt-line {
+  opacity: 1;
+  animation: cv-sweep 0.9s var(--e-out) infinite;
+}
+
+@keyframes cv-sweep {
+  0% {
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+  }
+
+  45% {
+    transform: scaleX(1);
+    transform-origin: 0 50%;
+  }
+
+  55% {
+    transform: scaleX(1);
+    transform-origin: 100% 50%;
+  }
+
+  100% {
+    transform: scaleX(0);
+    transform-origin: 100% 50%;
+  }
+}
+
+/* Announced, not shown. */
+.cv__live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* A blurred pseudo-element is the one expensive thing in this control. On a
+   machine that already failed the frame-budget sample, the segment keeps its
+   colour and loses its bloom. */
+[data-quality="low"] .cv__glider::before {
+  filter: none;
+  opacity: 0.45;
+}
+
+[data-quality="low"] .cv__glider::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv,
+  .cv__opt,
+  .cv__opt-code,
+  .cv__opt-done,
+  .cv__glider {
+    transition: none;
+  }
+
+  .cv__opt[data-state="busy"] .cv__opt-line {
+    animation: none;
+    opacity: 0.7;
+    transform: scaleX(1);
+  }
+}
+

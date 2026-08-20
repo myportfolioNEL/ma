@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://noureddinelmobaraki-web.github.io/portfolio/sitemap.xml

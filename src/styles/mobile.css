@@ -1,0 +1,3409 @@
+/* ==========================================================================
+   mobile.css — the thumb build.
+
+   No min-width queries. No hover states. Everything a finger can reach is at
+   least var(--tap) tall, navigation lives at the bottom of the screen, and the
+   safe-area insets are respected so nothing sits under a home indicator.
+   ========================================================================== */
+
+/* --- tokens for this device class ---------------------------------------- */
+
+:root {
+  --t-display: 3.1rem;
+  --t-h1: 2.3rem;
+  --t-h2: 1.85rem;
+  --t-h3: 1.22rem;
+  --t-lead: 1.02rem;
+  --vf-display: "wght" 640, "wdth" 92, "opsz" 72;
+  --gutter: 18px;
+  --header-h: 56px;
+  --nav-h: 64px;
+  --tap: 48px;
+}
+
+/* Room for the fixed bars at both ends. */
+body {
+  padding-top: var(--header-h);
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/* --- primitives ---------------------------------------------------------- */
+
+.gl {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-backdrop);
+  width: 100%;
+  height: 100%;
+  display: block;
+  pointer-events: none;
+}
+
+.shell {
+  width: 100%;
+  padding-inline: var(--gutter);
+}
+
+.section {
+  position: relative;
+  z-index: var(--z-content);
+  padding: var(--s-7) var(--gutter);
+
+  /* Skip layout and paint for sections that are not on screen. This matters
+     more here than on the desktop: it is the difference between a phone
+     laying out the whole document on every scroll frame and laying out only
+     the screen in front of you. contain-intrinsic-size is mandatory next to
+     it, otherwise the scrollbar jumps as sections are skipped and restored. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 620px;
+}
+
+.section--tight { padding-block: var(--s-6); }
+
+.rule { height: 1px; border: 0; margin: 0; background: var(--line); }
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.skip {
+  position: fixed;
+  top: 8px;
+  left: 50%;
+  z-index: 200;
+  translate: -50% -180%;
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  background: var(--invert);
+  color: var(--on-invert);
+  font: 500 0.8rem/1 var(--font-mono);
+  text-decoration: none;
+}
+
+.skip:focus-visible { translate: -50% 0; }
+
+/* --- type ---------------------------------------------------------------- */
+
+.display {
+  font-family: var(--font-display);
+  font-variation-settings: var(--vf-display);
+  font-size: var(--t-display);
+  line-height: 0.92;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.h1 { font-family: var(--font-display); font-size: var(--t-h1); line-height: 1.04; letter-spacing: -0.02em; }
+.h2 { font-family: var(--font-display); font-size: var(--t-h2); line-height: 1.08; letter-spacing: -0.02em; }
+.h3 { font-family: var(--font-display); font-size: var(--t-h3); line-height: 1.18; }
+.serif { font-family: var(--font-serif); font-style: italic; }
+
+.lead { font-size: var(--t-lead); line-height: 1.55; color: var(--text-dim); }
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.prose { color: var(--text-dim); line-height: 1.68; }
+.dim { color: var(--text-dim); }
+.faint { color: var(--text-faint); }
+.accent { color: var(--accent); }
+
+/* --- reveal -------------------------------------------------------------- */
+
+/* CSS owns the entrance. Shorter than the desktop's, because a phone screen is
+   short: an element travels less of it, so the same duration reads as slower. */
+[data-reveal] {
+  opacity: 0;
+  translate: 0 14px;
+  transition:
+    opacity 0.4s var(--e-out) var(--rd, 0s),
+    translate 0.4s var(--e-out) var(--rd, 0s);
+}
+
+[data-reveal].is-in { opacity: 1; translate: 0 0; }
+
+[data-reveal="fade"] { translate: 0 0; }
+
+[data-reveal="blur"] {
+  filter: blur(8px);
+  transition:
+    opacity 0.4s var(--e-out) var(--rd, 0s),
+    translate 0.4s var(--e-out) var(--rd, 0s),
+    filter 0.44s var(--e-out) var(--rd, 0s);
+}
+
+[data-reveal="blur"].is-in { filter: blur(0); }
+
+[data-reveal="clip"] {
+  opacity: 1;
+  translate: 0 0;
+  clip-path: inset(0 0 100% 0);
+  transition: clip-path 0.6s var(--e-out) var(--rd, 0s);
+}
+
+[data-reveal="clip"].is-in { clip-path: inset(0 0 0% 0); }
+
+.split-line { display: block; overflow: hidden; }
+.split-inner, .split-word, .split-char { display: inline-block; }
+
+/* --- controls ------------------------------------------------------------ */
+
+/*
+  The phone button.
+
+  Not the desktop button with more padding. The differences are the point:
+
+    · 52px normal, 56px and full width for a primary action. The 48px floor
+      is a floor, not a target, and a thumb travelling across a screen is
+      less accurate than one resting on it.
+    · No hover rules exist in this file. On a touchscreen :hover sticks after
+      a tap and leaves the button looking permanently pressed.
+    · The press is confirmed three ways within one frame: the whole button
+      scales down, the ink ripple starts at the exact contact point, and the
+      liquid behind the page is pushed there too.
+    · --e still applies, so a button near a tap warms up like everything
+      else, but with a coarser step (0.1) because a phone GPU repaints for
+      less reward.
+*/
+
+.btn {
+  --e: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  min-height: 52px;
+  padding: 0 1.25rem;
+  overflow: hidden;
+  border: 1px solid
+    color-mix(in oklab, var(--line-mid), var(--accent) calc(var(--e) * 60%));
+  border-radius: calc(var(--radius-pill) - var(--e) * 10px);
+  background: color-mix(in oklab, transparent, var(--accent) calc(var(--e) * 7%));
+  color: var(--text);
+  font: 500 0.95rem/1 var(--font-sans);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  transition:
+    scale 0.16s var(--e-out),
+    border-color 0.25s var(--e-out),
+    border-radius 0.3s var(--e-soft),
+    background-color 0.25s var(--e-out);
+}
+
+/* The press. scale, not translate: a button that sinks reads as a physical
+   key, and it cannot be confused with the page scrolling under the finger. */
+.btn:active { scale: 0.972; }
+
+.btn__label {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+.btn__text { display: inline-block; }
+.btn__icon { display: inline-flex; }
+
+/* The ripple. One element, one keyframe, transform and opacity only, and it
+   is driven from --rx/--ry which the component writes once per tap. */
+.btn__ink {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transform-origin: var(--rx, 50%) var(--ry, 50%);
+  background: radial-gradient(
+    circle at var(--rx, 50%) var(--ry, 50%),
+    rgba(var(--accent-rgb), 0.38),
+    transparent 58%
+  );
+}
+
+.btn__ink.is-on { animation: btn-ink 0.5s var(--e-out) forwards; }
+
+@keyframes btn-ink {
+  from { opacity: 0.9; scale: 0.35; }
+  to { opacity: 0; scale: 1.9; }
+}
+
+.btn--primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.btn--primary:active { background: var(--accent-2); }
+.btn--primary .btn__ink {
+  background: radial-gradient(
+    circle at var(--rx, 50%) var(--ry, 50%),
+    rgba(255, 255, 255, 0.42),
+    transparent 58%
+  );
+}
+
+.btn--ghost {
+  border-color: transparent;
+  background: none;
+  color: var(--text-dim);
+  padding-inline: 0.6rem;
+}
+.btn--ghost:active { background: var(--surface-2); }
+
+/* Full width, because on a phone the primary action of a section is a bar,
+   not a chip floating in the middle of a column. */
+.btn--lg {
+  width: 100%;
+  min-height: 56px;
+  font-size: 1rem;
+  letter-spacing: 0.005em;
+}
+
+/* Two buttons in a row on a phone is one button too many; stack them and let
+   each keep a full-width target. */
+.btn + .btn { margin-top: 0.6rem; }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.36em 0.8em;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--text-dim);
+}
+
+.pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2.6s var(--e-in-out) infinite;
+}
+
+.tags { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+
+.tag {
+  padding: 0.34em 0.66em;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: 500 0.7rem/1.4 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.marquee { overflow: hidden; border-block: 1px solid var(--line); padding-block: 0.7rem; }
+
+.marquee__track {
+  display: flex;
+  width: max-content;
+  gap: 2rem;
+  animation: marquee var(--marquee-duration, 44s) linear infinite;
+}
+
+.marquee__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 2rem;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/*
+  The phone section heading.
+
+  Restructured, not resized. A chip with the section number, a rule that runs
+  to the right edge, then the title at full width, then the note as a caption.
+  It is the shape a person expects at the top of a screen in an app, and it
+  leaves the title the entire width instead of a middle column.
+*/
+
+.head {
+  --e: 0;
+  display: grid;
+  gap: 0.55rem;
+  padding-bottom: var(--s-3);
+  margin-bottom: var(--s-5);
+}
+
+.head__top {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.head__index {
+  flex: none;
+  padding: 0.3em 0.6em;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--surface-3), var(--accent) calc(var(--e) * 22%));
+  font: 500 0.68rem/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  transition: background-color 0.3s var(--e-out);
+}
+
+.head__rule {
+  flex: 1 1 auto;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--line), var(--accent) calc(var(--e) * 60%)),
+    transparent
+  );
+  scale: 0 1;
+  transform-origin: left;
+  transition: scale 0.7s var(--e-out);
+}
+
+.head__top.is-in .head__rule { scale: 1 1; }
+
+.head__title {
+  font-family: var(--font-display);
+  font-size: var(--t-h2);
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  /* Two short lines beat one long line and one orphan. */
+  text-wrap: balance;
+}
+
+.head__note {
+  font: 500 0.7rem/1.5 var(--font-mono);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* --- top bar ------------------------------------------------------------- */
+
+.topbar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: var(--z-header);
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-inline: var(--gutter);
+  border-bottom: 1px solid transparent;
+  transition:
+    translate 0.35s var(--e-out),
+    background-color 0.3s var(--e-out),
+    border-color 0.3s var(--e-out);
+}
+
+.topbar[data-solid] {
+  background: var(--surface-glass-strong);
+  border-bottom-color: var(--line);
+  /* 8px instead of 12px: on a phone the blur is recomputed over the full
+     width of the screen on every scrolled frame, and the cost rises with the
+     radius. At this size the difference is invisible and the frames are not. */
+  backdrop-filter: blur(8px);
+}
+
+.topbar[data-hidden] { translate: 0 -100%; }
+
+.topbar__mark {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.topbar__mark b { font-family: var(--font-display); font-size: 1.05rem; letter-spacing: -0.02em; }
+.topbar__mark span { color: var(--text-faint); font-size: 0.68rem; }
+
+.topbar__cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 0.9rem;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-size: 0.7rem;
+  text-decoration: none;
+}
+
+/* --- tab bar ------------------------------------------------------------- */
+
+.tabbar {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: var(--z-header);
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: center;
+  height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--surface-glass-strong);
+  border-top: 1px solid var(--line);
+  /* No blur here at all. The tab bar is fixed at the bottom and visible for
+     every single frame of every scroll, which makes it the most expensive
+     place on the whole build to put a backdrop filter. A nearly opaque
+     surface reads the same and costs nothing. */
+  background: color-mix(in oklab, var(--surface), transparent 4%);
+}
+
+.tabbar__item {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.3rem;
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-faint);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tabbar__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity 0.25s var(--e-out);
+}
+
+.tabbar__label {
+  font: 500 0.64rem/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.tabbar__item[aria-current] { color: var(--accent); }
+.tabbar__item[aria-current] .tabbar__dot { opacity: 1; }
+
+/* --- hero ---------------------------------------------------------------- */
+
+.mhero {
+  position: relative;
+  z-index: var(--z-content);
+  display: grid;
+  gap: var(--s-4);
+  padding: var(--s-7) var(--gutter) var(--s-8);
+  min-height: calc(100svh - var(--header-h) - var(--nav-h));
+  align-content: center;
+}
+
+.mhero [data-hero] { opacity: 0; translate: 0 14px; }
+
+.mhero__title { margin: 0; }
+.mhero__role { color: var(--accent); }
+.mhero__lead { font-size: var(--t-lead); line-height: 1.58; color: var(--text-dim); }
+
+.mhero__cta { display: grid; gap: 0.6rem; margin-top: var(--s-3); }
+
+.mhero__loc { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--text-faint); }
+
+/* --- cards --------------------------------------------------------------- */
+
+.card[data-project="nl"] { --win-ink: #101a16; --win-tint: #2f6f57; }
+.card[data-project="prism"] { --win-ink: #111624; --win-tint: #3b53a8; }
+.card[data-project="momento"] { --win-ink: #1c150e; --win-tint: #a86a1f; }
+
+.cards { display: grid; gap: var(--s-5); margin: 0; padding: 0; list-style: none; }
+
+.card__btn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius-lg);
+  background: var(--win-ink);
+  text-align: left;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card__pane {
+  position: relative;
+  display: grid;
+  gap: var(--s-4);
+  min-height: 320px;
+  padding: var(--s-5);
+  color: var(--on-invert);
+  isolation: isolate;
+  align-content: space-between;
+}
+
+/* The art is its own moving part; the image inside it only draws. */
+.card__art {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  display: block;
+  pointer-events: none;
+}
+
+.card__warp {
+  display: block;
+}
+
+/* A finger has no hover, so the poster answers the press instead — and the
+   liquid you pushed with that same press warms it further through --e.
+
+   On a phone the grayscale pass was the single most expensive thing on this
+   screen: bound to --e and interpolated over 0.4s, it repainted a full-width
+   bitmap while the list was still scrolling. Opacity keeps following the
+   field; the filter is now one static value with one pressed value. */
+.card__poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: calc(0.2 + var(--e, 0) * 0.22);
+  filter: grayscale(1) contrast(1.05);
+  transition: opacity 0.4s var(--e-out);
+}
+
+/* NL: the whole screenshot, centred, never cropped. */
+.card__poster[data-fit="contain"] {
+  inset: 10% 8% 18%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  object-position: 50% 42%;
+  opacity: calc(0.3 + var(--e, 0) * 0.3);
+  filter: grayscale(0.8) contrast(1.02);
+}
+
+.card__btn:active .card__poster { opacity: 0.52; }
+
+.card__btn:active .card__poster[data-fit="contain"] {
+  opacity: 0.86;
+  filter: grayscale(0) contrast(1.02);
+}
+
+.card__wash {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(
+      to top,
+      color-mix(in srgb, var(--win-ink) 94%, transparent) 0%,
+      transparent 66%
+    ),
+    var(--win-tint);
+  mix-blend-mode: color;
+  opacity: 0.6;
+}
+
+.card__top,
+.card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--on-invert-faint);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card__foot { padding-top: var(--s-3); border-top: 1px solid var(--invert-line); }
+
+.card__copy { display: grid; gap: 0.4rem; }
+
+.card__kind {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--win-tint);
+  filter: brightness(1.6);
+}
+
+.card__title {
+  font-family: var(--font-display);
+  font-variation-settings: var(--vf-display);
+  font-size: 2.4rem;
+  line-height: 0.96;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.card__sub { color: var(--on-invert-dim); font-size: 0.94rem; line-height: 1.5; }
+
+.card__open { display: inline-flex; align-items: center; gap: 0.4rem; color: var(--on-invert); }
+
+/* --- sheet --------------------------------------------------------------- */
+
+.sheet[data-project="nl"] { --case-tint: #2f6f57; }
+.sheet[data-project="prism"] { --case-tint: #3b53a8; }
+.sheet[data-project="momento"] { --case-tint: #a86a1f; }
+
+.sheet {
+  position: fixed;
+  inset: 6svh 0 0;
+  z-index: var(--z-overlay);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: var(--surface);
+  border-radius: 18px 18px 0 0;
+  box-shadow: var(--shadow-sheet);
+  will-change: transform;
+}
+
+.sheet__grab {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  height: 26px;
+  background: var(--surface);
+  touch-action: none;
+}
+
+.sheet__grab span { width: 42px; height: 4px; border-radius: 999px; background: var(--line-strong); }
+
+.sheet__bar {
+  position: sticky;
+  top: 26px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.4rem var(--gutter) 0.7rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+
+.sheet__close {
+  display: grid;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  border: 1px solid var(--line-mid);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sheet__body {
+  display: grid;
+  gap: var(--s-4);
+  padding: var(--s-5) var(--gutter) calc(var(--s-8) + env(safe-area-inset-bottom, 0px));
+}
+
+.sheet__lead { font-size: var(--t-lead); line-height: 1.55; color: var(--text-dim); }
+
+.sheet__hero {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+/* The real screenshot, full colour — the only place it appears. */
+.sheet__hero img { display: block; width: 100%; height: auto; }
+
+.sheet__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.sheet__facts > div { display: grid; gap: 0.3rem; padding: var(--s-3); background: var(--surface); }
+.sheet__facts dt { font: 500 0.66rem/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
+.sheet__facts dd { margin: 0; font-size: 0.92rem; }
+
+.sheet__block { display: grid; gap: 0.7rem; }
+
+.sheet__list { display: grid; gap: 0.6rem; margin: 0; padding: 0; list-style: none; }
+
+.sheet__list li {
+  display: grid;
+  grid-template-columns: 1.8rem 1fr;
+  gap: 0.7rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.sheet__list li span:first-child { font: 500 0.72rem/1.7 var(--font-mono); color: var(--case-tint); }
+
+.sheet__actions { display: grid; gap: 0.6rem; padding-top: var(--s-4); }
+
+/* --- shared sections, stacked ------------------------------------------- */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.stat { display: grid; gap: 0.4rem; padding: var(--s-4); background: var(--surface); }
+.stat__value { font-family: var(--font-display); font-size: 2rem; line-height: 1; letter-spacing: -0.03em; }
+.stat__label { font: 500 0.66rem/1.4 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-faint); }
+.stats__note { padding-top: var(--s-3); color: var(--text-faint); }
+
+.about__grid { display: grid; gap: var(--s-5); }
+
+.about__media { border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-2); }
+.about__media img { display: block; width: 100%; height: auto; }
+.about__body { display: grid; gap: var(--s-4); }
+
+.about__facts {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.about__fact { display: flex; align-items: baseline; justify-content: space-between; gap: 0.8rem; padding: 0.75rem var(--s-3); background: var(--surface); }
+.about__langs { display: grid; gap: 0.4rem; color: var(--text-dim); }
+
+.caps {
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.cap { display: grid; gap: 0.7rem; padding: var(--s-5); background: var(--surface); }
+.cap__index { font: 500 0.7rem/1 var(--font-mono); letter-spacing: 0.14em; color: var(--accent); }
+.cap__title { font-family: var(--font-display); font-size: var(--t-h3); line-height: 1.14; }
+.cap__items { display: grid; gap: 0.4rem; margin: 0; padding: 0; list-style: none; }
+.cap__item { color: var(--text-dim); }
+.cap__proof { padding-top: 0.6rem; border-top: 1px solid var(--line); color: var(--text-faint); }
+
+.contact { display: grid; gap: var(--s-4); }
+
+.contact__title {
+  font-family: var(--font-display);
+  font-variation-settings: var(--vf-display);
+  font-size: var(--t-display);
+  line-height: 0.94;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.contact__mail {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: var(--tap);
+  font-size: 1.05rem;
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line-mid);
+}
+
+.contact__channels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--line);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.channel {
+  display: grid;
+  gap: 0.3rem;
+  min-height: var(--tap);
+  padding: var(--s-3);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.channel__label { font: 500 0.66rem/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
+
+.footer {
+  position: relative;
+  z-index: var(--z-content);
+  padding: var(--s-6) var(--gutter);
+  border-top: 1px solid var(--line);
+}
+
+.footer__grid { display: grid; gap: var(--s-4); }
+.footer__meta { display: grid; gap: 0.3rem; color: var(--text-faint); }
+.footer__links { display: flex; flex-wrap: wrap; gap: 0.9rem 1.2rem; }
+
+.footer__link {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  font: 500 0.74rem/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-decoration: none;
+}
+
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-preloader);
+  display: grid;
+  place-items: center;
+  padding: var(--gutter);
+  background: var(--invert);
+  color: var(--on-invert);
+}
+
+.preloader__inner { width: 100%; display: grid; gap: 0.9rem; }
+
+.preloader__name {
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+}
+
+.preloader__bar { height: 2px; background: var(--invert-line); overflow: hidden; }
+
+.preloader__fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  scale: 0 1;
+  transform-origin: left center;
+}
+
+.preloader__count {
+  justify-self: end;
+  font: 500 0.72rem/1 var(--font-mono);
+  letter-spacing: 0.14em;
+  color: var(--on-invert-faint);
+}
+
+/* --- small handsets ----------------------------------------------------- */
+
+@media (max-width: 420px) {
+  .card__title { font-size: 2.1rem; }
+  .card__pane { min-height: 288px; padding: var(--s-4); }
+  .stats { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 380px) {
+  :root {
+    --t-display: 2.45rem;
+    --gutter: 15px;
+  }
+
+  .card__title { font-size: 1.9rem; }
+  .contact__channels { grid-template-columns: 1fr; }
+  .sheet__facts { grid-template-columns: 1fr; }
+  .tabbar__label { font-size: 0.6rem; }
+}
+
+/* --- keyframes ---------------------------------------------------------- */
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; scale: 1; }
+  50% { opacity: 0.45; scale: 0.82; }
+}
+
+@keyframes marquee {
+  from { translate: 0 0; }
+  to { translate: -50% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee__track,
+  .pill__dot { animation: none; }
+
+  [data-reveal] { opacity: 1; translate: 0 0; transition: none; }
+  .mhero [data-hero] { opacity: 1; translate: 0 0; }
+
+  html { scroll-behavior: auto; }
+
+  .btn { transition: none; }
+  .btn:active { scale: 1; background: var(--surface-2); }
+  .btn__ink { display: none; }
+  .head__index,
+  .head__rule { transition: none; }
+  .head__rule { scale: 1 1; }
+}
+/* ==========================================================================
+   ROUND 20 — letters on a touch screen
+   ========================================================================== */
+
+.mhero__titlewrap {
+  display: block;
+}
+
+.ln {
+  display: block;
+}
+
+.ln__word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.ln__char {
+  display: inline-block;
+  text-align: center;
+  transform-origin: 50% 62%;
+  backface-visibility: hidden;
+  color: color-mix(in oklab, var(--accent) calc(var(--l, 0) * 100%), var(--text));
+  font-variation-settings: var(--vf-display);
+  /* A touch target should not select text while it is being pressed. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* The name is tappable, so it must not fight the browser's gesture handling
+   and must not flash a tap highlight. */
+.mhero__title.ln {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sheet__hero img[data-fit="contain"] {
+  object-fit: contain;
+  background: var(--surface-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ln__char {
+    color: var(--text);
+    font-variation-settings: var(--vf-display);
+  }
+}
+/* ==========================================================================
+   ROUND 21 - the phone scrolls itself
+   ========================================================================== */
+
+/*
+  base.css sets scroll-behavior: auto because Lenis used to own scrolling on
+  both builds. On the phone there is no Lenis any more, so the platform needs
+  its own instructions: smooth for anchor jumps, and enough padding at the top
+  that a section never arrives underneath the fixed top bar.
+*/
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--header-h) + 12px);
+  /* Stops a rubber-band at the top of the page from pulling in the browser's
+     pull-to-refresh in the middle of a flick. */
+  overscroll-behavior-y: contain;
+}
+
+/* Momentum scrolling inside the case sheet, which is the only nested scroller
+   on this build. */
+.sheet__scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* ==========================================================================
+   ROUND 22 - the live preview layer, phone
+   ==========================================================================
+
+   Same slot as the poster, same clipping, different virtual viewport: the
+   framed site renders at phone width so the visitor sees the layout their own
+   device would show them. The card shows the top of that page; the rest is
+   clipped, which is what a card is.
+   ========================================================================== */
+
+.pw {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s var(--e-out);
+}
+
+.pw[data-state="live"] { opacity: 1; }
+
+.pw__frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--pw-w, 414px);
+  height: var(--pw-h, 896px);
+  border: 0;
+  background: var(--win-ink);
+  transform: scale(var(--pw-scale, 1));
+  transform-origin: 0 0;
+}
+
+.card__pane:has(.pw[data-state="live"]) .card__poster,
+.card__pane:has(.pw[data-state="live"]) .card__poster[data-fit="contain"] {
+  opacity: 0;
+  transition: opacity 0.4s var(--e-out);
+}
+
+.pw[data-state="live"] ~ .card__wash { opacity: 0.42; }
+
+.pw__flag {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  z-index: 1;
+  padding: 0.16rem 0.45rem;
+  border: 1px solid color-mix(in oklab, var(--win-tint) 60%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in oklab, var(--win-ink) 74%, transparent);
+  color: var(--on-invert);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.28s var(--e-out);
+}
+
+.pw[data-state="loading"] .pw__flag { opacity: 0.5; }
+.pw[data-state="live"] .pw__flag { opacity: 0.85; }
+
+/* A coloured card while the poster is still in flight, never a hole. */
+.card__pane { background: var(--win-ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  [data-reveal="blur"],
+  [data-reveal="clip"] { transition: none; }
+
+  .pw { transition: none; }
+}
+
+/* ==========================================================================
+   ROUND 23 - the royal thread, touch build
+   ========================================================================== */
+
+/* --- 1. buttons ---------------------------------------------------------- */
+
+.btn {
+  border-color: color-mix(
+    in oklab,
+    var(--line-mid),
+    var(--rr-lit) calc(45% + var(--e) * 40%)
+  );
+}
+
+.btn__label {
+  color: var(--text);
+}
+
+/* The tap ripple. Gold at the centre, red at the edge: the thread, released
+   from the point of contact. */
+.btn__ink {
+  background: radial-gradient(
+    circle at var(--rx, 50%) var(--ry, 50%),
+    rgba(var(--gold-rgb), 0.42) 0%,
+    rgba(var(--rr-rgb), 0.34) 46%,
+    transparent 72%
+  );
+}
+
+.btn--primary {
+  border-color: rgba(var(--gold-rgb), 0.44);
+  background-color: var(--rr);
+  background-image: var(--orn-texture);
+  background-size: var(--orn-size);
+  box-shadow: var(--royal-shadow);
+}
+
+.btn--primary .btn__label {
+  color: var(--gold-lit);
+}
+
+.btn--primary .btn__icon {
+  color: var(--gold);
+}
+
+.btn--ghost .btn__label {
+  background-image: var(--thread-line);
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  background-position: 0 100%;
+}
+
+.pill {
+  border-color: rgba(var(--rr-rgb), 0.34);
+}
+
+/* --- 2. section heads ---------------------------------------------------- */
+
+.head__index {
+  padding: 0.32em 0.6em 0.28em;
+  border: 1px solid rgba(var(--gold-rgb), 0.32);
+  border-radius: var(--radius);
+  background-color: var(--orn-red);
+  background-image: var(--orn-texture);
+  background-size: var(--orn-size);
+  color: var(--gold-lit);
+}
+
+/* Royal red at rest, and a gold hairline of gild that only exists while the
+   heading is being touched. Nothing here reads --e per frame. */
+.head__title {
+  color: var(--rr);
+}
+
+.head:active .head__title {
+  text-shadow: var(--gild);
+}
+
+.head__rule {
+  background-color: transparent;
+  background-image: var(--thread-line);
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  background-position: 0 50%;
+}
+
+.head__note {
+  color: var(--text-dim);
+}
+
+/* --- 3. the mail plate, touch version ----------------------------------- */
+
+.contact__plate {
+  display: grid;
+  gap: var(--s-4);
+  margin-block-start: var(--s-5);
+}
+
+.mp--m {
+  display: grid;
+  gap: var(--s-3);
+  width: 100%;
+}
+
+.mp--m .mp__btn {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 60px;
+  padding: var(--s-3) var(--s-4);
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mp--m .mp__frame {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border: 1px solid rgba(var(--gold-rgb), 0.44);
+  border-radius: var(--radius);
+  background-color: var(--orn-red);
+  background-image: var(--orn-texture);
+  background-size: var(--orn-size);
+  box-shadow: var(--royal-shadow);
+}
+
+/* The inner ornament line, held closer than on the desktop because the plate
+   is shorter. */
+.mp--m .mp__frame::before {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(var(--gold-rgb), 0.2);
+}
+
+.mp--m .mp__pt {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  rotate: 45deg;
+  background: var(--gold);
+}
+
+.mp--m .mp__pt--tl {
+  top: -3px;
+  left: -3px;
+}
+.mp--m .mp__pt--tr {
+  top: -3px;
+  right: -3px;
+}
+.mp--m .mp__pt--bl {
+  bottom: -3px;
+  left: -3px;
+}
+.mp--m .mp__pt--br {
+  bottom: -3px;
+  right: -3px;
+}
+
+/* The tap ripple, same family as the button ink. One class, two custom
+   properties, no filter. */
+.mp--m .mp__ink {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: var(--radius);
+  background: radial-gradient(
+    circle at var(--rx, 50%) var(--ry, 50%),
+    rgba(var(--gold-rgb), 0.4) 0%,
+    rgba(var(--gold-rgb), 0.16) 40%,
+    transparent 68%
+  );
+  opacity: 0;
+  scale: 0.7;
+}
+
+.mp--m .mp__ink.is-on {
+  animation: mp-ink 0.52s var(--e-out) both;
+}
+
+@keyframes mp-ink {
+  from {
+    opacity: 0.9;
+    scale: 0.7;
+  }
+  to {
+    opacity: 0;
+    scale: 1.25;
+  }
+}
+
+/* Label above, address below, both always readable. */
+.mp--m .mp__lines {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.mp--m .mp__label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-royal-dim);
+}
+
+.mp--m .mp__addr {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--gold-lit);
+  /* The address is 30 characters. On a 360px phone it must be allowed to
+     shrink rather than push the icon off the plate. */
+  overflow-wrap: anywhere;
+}
+
+.mp--m[data-state="copied"] .mp__label {
+  color: var(--gold-lit);
+}
+
+.mp--m .mp__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(var(--gold-rgb), 0.32);
+  border-radius: var(--radius);
+  color: var(--gold-lit);
+  background: rgba(var(--gold-rgb), 0.08);
+}
+
+/* The second action: its own full-width target, at least var(--tap) tall, in
+   the thumb zone under the plate. */
+.mp--m .mp__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tap);
+  border: 1px solid var(--line-mid);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--rr);
+  text-decoration: none;
+}
+
+.mp--m .mp__action:active {
+  border-color: rgba(var(--gold-rgb), 0.5);
+  background: rgba(var(--rr-rgb), 0.06);
+}
+
+.mp--m .mp__live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- 4. the waiting mark, touch version --------------------------------- */
+
+.ld {
+  --ld-hair: rgba(var(--rr-rgb), 0.5);
+  --ld-gold: rgba(var(--gold-rgb), 0.62);
+  --ld-fill: rgba(var(--rr-rgb), 0.14);
+
+  position: relative;
+  display: inline-grid;
+  grid-template-rows: var(--ld-h) 3px;
+  gap: 4px;
+  width: var(--ld-w);
+  pointer-events: none;
+}
+
+.ld--on {
+  --ld-hair: rgba(var(--gold-rgb), 0.7);
+  --ld-gold: rgba(240, 220, 166, 0.85);
+  --ld-fill: rgba(var(--gold-rgb), 0.14);
+}
+
+.ld--sm {
+  --ld-h: 20px;
+  width: calc(var(--ld-w) * 0.74);
+  grid-template-rows: 20px 3px;
+}
+
+.ld__vessel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--ld-hair);
+  border-top-color: var(--ld-gold);
+  border-radius: 2px 2px 8px 8px;
+  background-color: var(--ld-fill);
+  transform-origin: 0% 50%;
+  animation: ld-pour var(--ld-speed) infinite var(--e-in-out);
+}
+
+.ld__lip {
+  position: absolute;
+  inset: -1px -1px auto -1px;
+  height: 2px;
+  background: var(--ld-gold);
+}
+
+/* One sheen instead of three blurred wisps. It is a gradient crossing a
+   22 pixel box: no filter, no extra layer, same reading. */
+.ld__sheen {
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(
+    100deg,
+    transparent 36%,
+    rgba(var(--gold-rgb), 0.5) 50%,
+    transparent 64%
+  );
+  background-size: 240% 100%;
+  background-repeat: no-repeat;
+  animation: ld-sheen calc(var(--ld-speed) * 1.2) infinite linear;
+}
+
+.ld__trail {
+  background-image: radial-gradient(
+    circle at 1.5px 50%,
+    var(--ld-gold) 0 1.5px,
+    transparent 2px
+  );
+  background-size: 8px 100%;
+  background-repeat: repeat-x;
+  mask-image: linear-gradient(90deg, #000 0 56%, transparent 100%);
+  animation: ld-trail-m var(--ld-speed) infinite linear;
+}
+
+@keyframes ld-pour {
+  0% {
+    scale: 0.3 1;
+  }
+  46% {
+    scale: 1 1;
+  }
+  74% {
+    scale: 1 1;
+  }
+  100% {
+    scale: 0.3 1;
+  }
+}
+
+@keyframes ld-sheen {
+  from {
+    background-position: -60% 0;
+  }
+  to {
+    background-position: 160% 0;
+  }
+}
+
+@keyframes ld-trail-m {
+  from {
+    background-position: 0 0;
+  }
+  to {
+    background-position: 8px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ld__vessel,
+  .ld__sheen,
+  .ld__trail {
+    animation: none;
+  }
+
+  .ld__vessel {
+    scale: 1 1;
+  }
+
+  .ld__sheen {
+    opacity: 0.34;
+    background-position: 50% 0;
+  }
+}
+
+/* --- 5. the places that wait -------------------------------------------- */
+
+.card__wait,
+.pw__wait,
+.sheet__wait {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.card__wait,
+.pw__wait {
+  background: rgba(37, 5, 8, 0.32);
+}
+
+.sheet__hero {
+  position: relative;
+}
+
+.sheet__hero img {
+  transition: opacity var(--d-3) var(--e-out);
+}
+
+.sheet__hero[data-waiting="true"] img {
+  opacity: 0;
+}
+
+.pw__flag {
+  border-color: rgba(var(--gold-rgb), 0.4);
+  color: var(--gold-lit);
+  background: rgba(37, 5, 8, 0.6);
+}
+
+/* --- 6. the preloader and the footer ------------------------------------ */
+
+.preloader__fill {
+  background-color: var(--rr);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+}
+
+.preloader__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+.preloader__count {
+  color: var(--gold);
+}
+
+.footer__link {
+  color: var(--rr);
+}
+
+.channel {
+  border-color: rgba(var(--gold-rgb), 0.24);
+}
+
+/* ==========================================================================
+   ROUND 24 - make the thread visible, touch build
+
+   Same rule as the mouse build: the resting state is the finished state. On a
+   phone there is no hover at all, so anything that only exists on hover does
+   not exist.
+   ========================================================================== */
+
+/* --- 1. section heads ---------------------------------------------------- */
+
+.head__rule {
+  height: 2px;
+  scale: 1 1;
+  opacity: 1;
+  background-image:
+    var(--thread-line),
+    linear-gradient(
+      90deg,
+      rgba(var(--gold-rgb), 0.48) 0%,
+      rgba(var(--gold-rgb), 0.12) 42%,
+      transparent 74%
+    );
+  background-repeat: no-repeat, no-repeat;
+  background-size: 100% 1px, 100% 1px;
+  background-position: 0 0, 0 100%;
+}
+
+.head__index {
+  color: var(--gold-lit);
+}
+
+.section + .section::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background-image: var(--thread-line);
+  background-repeat: no-repeat;
+  background-size: 100% 1px;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* --- 2. buttons ---------------------------------------------------------- */
+
+.btn--primary .btn__warp {
+  border-color: rgba(var(--gold-rgb), 0.5);
+}
+
+.btn--primary .btn__label {
+  color: var(--on-royal);
+  text-shadow: var(--halo-royal);
+}
+
+/* --- 3. the mail plate --------------------------------------------------- */
+
+.mp--m {
+  --mp-cut: polygon(
+    10px 0,
+    calc(100% - 10px) 0,
+    100% 10px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0 calc(100% - 10px),
+    0 10px
+  );
+  --mp-cut-in: polygon(
+    9px 0,
+    calc(100% - 9px) 0,
+    100% 9px,
+    100% calc(100% - 9px),
+    calc(100% - 9px) 100%,
+    9px 100%,
+    0 calc(100% - 9px),
+    0 9px
+  );
+}
+
+.mp--m .mp__btn {
+  min-height: 72px;
+  padding: var(--s-4) var(--s-4);
+}
+
+/* The gold edge, cut corners included. */
+.mp--m .mp__frame {
+  border: 0;
+  border-radius: 0;
+  clip-path: var(--mp-cut);
+  background-color: var(--gold-hair);
+  background-image: none;
+  box-shadow: none;
+  filter: drop-shadow(0 2px 2px rgba(37, 5, 8, 0.26))
+    drop-shadow(0 10px 22px rgba(37, 5, 8, 0.22));
+}
+
+/* The ornamental ground. */
+.mp--m .mp__frame::before {
+  inset: 1px;
+  border: 0;
+  clip-path: var(--mp-cut-in);
+  background-color: var(--orn-red);
+  background-image: var(--orn-texture);
+  background-size: var(--orn-size);
+}
+
+/* The inner hairline, as its own layer so the ground can stay clean. */
+.mp--m .mp__frame::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border: 1px solid rgba(var(--gold-rgb), 0.3);
+  pointer-events: none;
+}
+
+/* Lozenges on the cuts, not floating outside the plate. */
+.mp--m .mp__pt {
+  width: 9px;
+  height: 9px;
+  background: var(--gold-lit);
+  box-shadow: 0 0 0 1px rgba(var(--gold-rgb), 0.5);
+}
+
+.mp--m .mp__pt--tl { top: 1px; left: 1px; }
+.mp--m .mp__pt--tr { top: 1px; right: 1px; }
+.mp--m .mp__pt--bl { bottom: 1px; left: 1px; }
+.mp--m .mp__pt--br { bottom: 1px; right: 1px; }
+
+/* The address is never hidden on a phone. */
+.mp--m .mp__label {
+  font-size: var(--fs-xs);
+  color: var(--on-royal-dim);
+}
+
+.mp--m .mp__addr {
+  font-size: var(--fs-sm);
+  color: var(--gold-lit);
+  text-shadow: var(--halo-royal);
+  overflow-wrap: anywhere;
+}
+
+.mp--m .mp__mark {
+  color: var(--gold-lit);
+  border-color: rgba(var(--gold-rgb), 0.45);
+}
+
+.mp--m .mp__ink {
+  border-radius: 0;
+  clip-path: var(--mp-cut-in);
+}
+
+/* --- 4. the waiting mark ------------------------------------------------- */
+
+.ld {
+  --ld-hair: rgba(var(--rr-rgb), 0.6);
+  --ld-gold: rgba(var(--gold-rgb), 0.85);
+}
+
+/* ==========================================================================
+   ROUND 25 · MOBILE — مادة الزر على الهاتف
+   ========================================================================== */
+
+.btn__ink { display: none !important; }
+
+.btn {
+  --e: 0;
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  min-height: var(--tap, 48px);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: 500 0.95rem/1 var(--font-sans);
+  text-decoration: none;
+  border-radius: var(--btn-r);
+  -webkit-tap-highlight-color: transparent;
+  isolation: isolate;
+}
+
+.btn__fog {
+  position: absolute;
+  inset: -6px;
+  z-index: -1;
+  border-radius: calc(var(--btn-r) + 6px);
+  pointer-events: none;
+  opacity: 0.44;
+  filter: blur(8px);
+  background: var(--btn-fog);
+}
+
+.btn__warp {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6em;
+  width: 100%;
+  min-height: inherit;
+  padding: 0 1.2rem;
+  overflow: hidden;
+  border-radius: var(--btn-r);
+  background-color: rgba(74, 10, 14, 0.08);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: 18% 50%;
+  -webkit-backdrop-filter: var(--btn-glass);
+  backdrop-filter: var(--btn-glass);
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--gold-rgb), 0.22),
+    0 6px 16px rgba(37, 5, 8, 0.12);
+  transition: scale 0.14s var(--e-out), background-position 0.4s var(--e-out);
+}
+
+.btn__warp::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--surface);
+  opacity: 0.72;
+}
+
+.btn__label {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5em;
+  white-space: nowrap;
+}
+
+/* الدخان عند النقر: ينطلق من مكان الإصبع (--rx/--ry). */
+.btn__smoke {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.btn[data-smoke="on"] .btn__smoke { opacity: 1; }
+
+.btn__puff {
+  position: absolute;
+  top: var(--ry, 50%);
+  left: var(--rx, 50%);
+  width: 28px;
+  height: 28px;
+  translate: -50% -50%;
+  border-radius: 50%;
+  filter: blur(var(--smoke-blur));
+  opacity: 0;
+  background: var(--smoke);
+}
+
+.btn[data-smoke="on"] .btn__puff {
+  animation: btn-smoke-m var(--smoke-time) var(--e-out) forwards;
+}
+
+.btn__puff--2 { width: 38px; height: 38px; animation-delay: 0.06s; }
+.btn__puff--3 { animation-delay: 0.12s; }
+
+@keyframes btn-smoke-m {
+  0%   { scale: 0.4; opacity: 0; }
+  25%  { opacity: 0.95; }
+  100% { translate: -50% -140%; scale: 1.6; opacity: 0; }
+}
+
+.btn:active .btn__warp {
+  scale: 0.975;
+  background-position: 68% 50%;
+}
+
+.btn--primary .btn__warp::before { opacity: 0.08; }
+.btn--primary .btn__label {
+  color: var(--on-royal);
+  text-shadow: var(--halo-royal);
+}
+
+.btn--quiet .btn__warp {
+  background-color: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb), 0.18);
+}
+.btn--quiet .btn__warp::before { opacity: 0; }
+
+.btn--lg { min-height: 54px; }
+.btn--lg .btn__warp { padding: 0 1.6rem; }
+
+/* عناصر التحكم الأخرى على الهاتف */
+.sheet__close,
+.tabbar__link[data-current],
+.mp--m .mp__action {
+  border-radius: var(--btn-r-sm);
+  -webkit-backdrop-filter: var(--btn-glass);
+  backdrop-filter: var(--btn-glass);
+  box-shadow: inset 0 0 0 1px rgba(var(--gold-rgb), 0.22);
+}
+
+/* Hero lead fix */
+.hero__lead {
+  -webkit-line-clamp: unset;
+  max-height: none;
+}
+
+/* TabBar with 3 items layout */
+.tabbar__list {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* إطار مركون */
+.pw[data-parked="true"] {
+  visibility: hidden;
+  content-visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.pw[data-parked="true"] .pw__flag,
+.pw[data-parked="true"] .pw__wait { display: none; }
+
+/* الأقسام خارج الشاشة */
+#numbers,
+#about,
+#capabilities,
+#contact {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 900px;
+}
+
+img[loading="lazy"] { content-visibility: auto; }
+
+/* --------------------------------------------------------------------------
+   ROUND 25 · مبدّل اللغة - هاتف
+   -------------------------------------------------------------------------- */
+
+.lang {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.lang__btn {
+  min-height: 34px;
+  padding-inline: 10px;
+  border-radius: var(--btn-r-sm);
+}
+
+.lang__code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+}
+
+.lang__btn::after {
+  content: "";
+  position: absolute;
+  inset-inline: 34%;
+  bottom: 5px;
+  height: 1px;
+  background: var(--thread-line);
+  opacity: 0;
+  transition: opacity 0.28s var(--e-out);
+  pointer-events: none;
+}
+
+.lang[data-open="true"] .lang__btn::after { opacity: 0.9; }
+
+.lang__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 60;
+  min-width: 160px;
+  padding: 6px;
+  border-radius: var(--btn-r);
+  overflow: hidden;
+  isolation: isolate;
+
+  background:
+    linear-gradient(180deg, rgba(var(--rr-rgb), 0.2), rgba(var(--rr-rgb), 0.34)),
+    var(--orn-tile);
+  background-size: auto, var(--orn-size);
+  backdrop-filter: var(--btn-glass-strong);
+  -webkit-backdrop-filter: var(--btn-glass-strong);
+  border: 1px solid rgba(var(--gold-rgb), 0.3);
+  box-shadow: var(--royal-shadow), inset 0 1px 0 rgba(247, 236, 216, 0.1);
+}
+
+.lang__fog {
+  position: absolute;
+  inset: -20%;
+  background: var(--btn-fog);
+  filter: blur(var(--btn-fog-blur));
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.lang__warp {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.lang__option {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--btn-r-sm);
+  background: transparent;
+  color: var(--on-royal-dim);
+  text-align: start;
+  cursor: pointer;
+}
+
+.lang__option-code {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  opacity: 0.72;
+  min-width: 22px;
+}
+
+.lang__option-name { font-size: 13px; }
+
+.lang__option:active {
+  background: rgba(247, 236, 216, 0.09);
+  color: var(--on-royal);
+}
+
+.lang__option[aria-selected="true"] {
+  color: var(--on-royal);
+  background: rgba(var(--gold-rgb), 0.12);
+}
+
+.lang__option[aria-selected="true"]::after {
+  content: "";
+  margin-inline-start: auto;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--gold-lit);
+  box-shadow: 0 0 8px rgba(var(--gold-rgb), 0.7);
+}
+
+/* ==========================================================================
+   ROUND 25 · RTL (Mobile)
+   ========================================================================== */
+
+[dir="rtl"] .marquee__track {
+  animation-direction: reverse;
+}
+
+/* حُذف عكس الأيقونات: الأسهم هنا قُطرية ونازلة، وليست اتجاهية.
+   ما يحتاج العكس فعلاً يأخذ الصنف .icon--flip من base.css. */
+
+/* العزل صار غير مشروط في base.css عبر .ltr، ومطبَّقاً في الـ JSX.
+   القاعدة المشروطة القديمة كانت تعمل في العربية فقط، ثم تنكسر في
+   الفرنسية حيث تظهر نفس الأرقام والروابط. */
+.metric__value,
+.header__clock,
+.win__url,
+.mp__addr,
+.lang__code,
+code {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+:root:lang(ar) body { line-height: 1.75; }
+
+:root:lang(ar) .h1,
+:root:lang(ar) .h2,
+:root:lang(ar) .section__title,
+:root:lang(ar) .hero__title,
+:root:lang(ar) .btn__text {
+  letter-spacing: 0;
+  word-spacing: 0.02em;
+}
+
+:root:lang(ar) .mono,
+:root:lang(ar) .eyebrow,
+:root:lang(ar) .section__index {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn__smoke { display: none; }
+  .btn__fog { transition: none; }
+  .btn__warp { transition: none; }
+}
+
+/* ==========================================================================
+   ROUND 26 · الاسم
+   ========================================================================== */
+
+/* الاسم لاتيني في اللغات الثلاث: اتجاهه ملكه. */
+.ln {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* في العربية يُعرَض الاسم كاملاً بلا تقطيع (الحارس في useLetterEngine).
+   هذه ليست حالة عطب — هي الحالة الصحيحة، ويجب أن تبدو مقصودة. */
+.ln--plain {
+  font-variation-settings: var(--vf-display);
+}
+
+/* العنوان العربي محاذاته للبداية المنطقية، لا لليسار المطلق. */
+[dir="rtl"] .hero__title,
+[dir="rtl"] .mhero__title {
+  text-align: start;
+}
+
+/* ==========================================================================
+   ROUND 26 · مادة التحكّم — الهاتف
+   نفس المادة تماماً، مع ثلاثة فروق: لا hover، هدف لمس أكبر، زجاج أخفّ.
+   ========================================================================== */
+
+.btn__warp,
+.ctl {
+  --veil: var(--ctl-veil-paper);
+  --ink: var(--ctl-ink-paper);
+  --ctl-h: var(--tap, 48px);
+  --ctl-pad: var(--ctl-pad-md);
+  --ctl-r: var(--ctl-r-md);
+  --ctl-fog: var(--ctl-fog-sm);
+
+  position: relative;
+  display: inline-flex;
+  flex: 1 1 auto;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  min-height: var(--ctl-h);
+  padding-inline: var(--ctl-pad);
+  border: 0;
+  border-radius: var(--ctl-r);
+  overflow: hidden;
+  isolation: isolate;
+  color: var(--ink);
+  background-color: rgba(var(--rr-rgb), 0.07);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: 16% 50%;
+  -webkit-backdrop-filter: blur(7px) saturate(120%);
+  backdrop-filter: blur(7px) saturate(120%);
+  box-shadow:
+    inset 0 0 0 1px var(--ctl-edge),
+    0 5px 14px rgba(37, 5, 8, 0.1);
+  transition:
+    background-position 0.42s var(--e-out),
+    scale 0.14s var(--e-out);
+}
+
+.btn__warp::before,
+.ctl::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--surface);
+  opacity: var(--veil);
+}
+
+.btn__label,
+.ctl > * { position: relative; z-index: 2; }
+
+.is-paper { --veil: var(--ctl-veil-paper); --ink: var(--ctl-ink-paper); }
+.is-royal { --veil: var(--ctl-veil-royal); --ink: var(--ctl-ink-royal); }
+
+.is-royal.btn__warp,
+.ctl.is-royal {
+  background-color: rgba(var(--rr-rgb), 0.93);
+  box-shadow:
+    inset 0 0 0 1px var(--ctl-edge-lit),
+    0 6px 18px rgba(37, 5, 8, 0.2);
+  text-shadow: var(--halo-royal);
+}
+
+.btn__fog {
+  position: absolute;
+  inset: calc(var(--ctl-fog, 3px) * -1);
+  z-index: -1;
+  border-radius: calc(var(--ctl-r, 12px) + var(--ctl-fog, 3px));
+  pointer-events: none;
+  opacity: 0.4;
+  filter: blur(calc(var(--ctl-fog, 3px) + 3px));
+  background: var(--btn-fog);
+}
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: stretch;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: 500 0.95rem/1 var(--font-sans);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  isolation: isolate;
+}
+
+/* على الهاتف الزر الأساسي شريط كامل العرض — واللوح يتبعه الآن لأنه flex: 1. */
+.btn--lg { width: 100%; }
+.btn--lg .btn__warp { --ctl-h: 54px; --ctl-pad: var(--ctl-pad-lg); --ctl-r: var(--ctl-r-lg); }
+.btn--sm .btn__warp { --ctl-h: 38px; --ctl-pad: var(--ctl-pad-sm); --ctl-r: var(--ctl-r-sm); }
+
+.btn:active .btn__warp,
+.ctl:active { scale: 0.975; }
+
+.btn__icon { display: inline-flex; color: currentColor; }
+
+/* الشريط السفلي: خمسة عناصر لا ثلاثة. عدد الأعمدة يتبع المحتوى. */
+.tabbar__list {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+}
+
+/* ==========================================================================
+   ROUND 26 · كل زر على حدة — الهاتف
+   لا hover هنا. كل حالة يجب أن تكون مقروءة وهي ساكنة.
+   ========================================================================== */
+
+.btn--primary .btn__warp {
+  --veil: var(--ctl-veil-royal);
+  --ink: var(--ctl-ink-royal);
+  background-color: rgba(var(--rr-rgb), 0.94);
+  box-shadow: inset 0 0 0 1px var(--ctl-edge-lit), 0 8px 20px rgba(37, 5, 8, 0.22);
+  text-shadow: var(--halo-royal);
+}
+
+.btn--line .btn__warp {
+  --veil: 0.93;
+  --ink: var(--text);
+  background-color: rgba(var(--rr-rgb), 0.04);
+}
+
+.btn--ghost .btn__warp {
+  --veil: 0;
+  --ink: var(--text-dim);
+  background-color: transparent;
+  background-image: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+.btn--ghost .btn__fog { display: none; }
+
+/* --- 13 · شارة الرأس — هاتف -------------------------------------------
+   كانت أحمر فاقعاً خارج اللوحة كلها. الآن ملكية مثل أختها في المكتب. */
+.topbar__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding-inline: var(--ctl-pad-sm);
+  border-radius: var(--ctl-r-sm);
+  color: var(--on-royal);
+  background: rgba(var(--rr-rgb), 0.93) var(--thread);
+  background-size: var(--thread-size);
+  background-position: 14% 50%;
+  box-shadow: inset 0 0 0 1px var(--ctl-edge-lit), 0 5px 14px rgba(37, 5, 8, 0.18);
+  font-size: 0.82rem;
+  text-decoration: none;
+  text-shadow: var(--halo-royal);
+}
+.topbar__cta::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--gold-lit);
+}
+.topbar__cta:active { scale: 0.97; }
+
+.topbar__mark { background: none; box-shadow: none; color: var(--text); }
+
+/* --- 14 · إغلاق الورقة -------------------------------------------------- */
+.sheet__close {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  padding: 0;
+  border-radius: var(--ctl-r-sm);
+  color: var(--text);
+  background-color: rgba(var(--surface-rgb, 239, 235, 225), 0.9);
+  box-shadow: inset 0 0 0 1px var(--ctl-edge);
+}
+
+/* --- 15 · أزرار البطاقة ------------------------------------------------
+   زوج: الأول يفتح (ملكي)، الثاني ينسخ (ورق). لا لوحان متطابقان. */
+.card__open {
+  min-height: var(--tap, 48px);
+  padding-inline: var(--ctl-pad-md);
+  border-radius: var(--ctl-r-md);
+  color: var(--on-royal);
+  background: rgba(var(--rr-rgb), 0.92) var(--thread);
+  background-size: var(--thread-size);
+  background-position: 16% 50%;
+  box-shadow: inset 0 0 0 1px var(--ctl-edge-lit), 0 6px 16px rgba(37, 5, 8, 0.18);
+  text-shadow: var(--halo-royal);
+}
+
+.card__copy {
+  min-height: var(--tap, 48px);
+  padding-inline: var(--ctl-pad-md);
+  border-radius: var(--ctl-r-md);
+  color: var(--text);
+  background-color: rgba(var(--rr-rgb), 0.05);
+  box-shadow: inset 0 0 0 1px var(--ctl-edge);
+}
+
+.card__open:active,
+.card__copy:active { scale: 0.975; }
+
+/* --- 16 · الشريط السفلي ------------------------------------------------
+   لا لوح ولا زجاج: خمسة ألواح زجاجية فوق بعضها تقتل إطارات الرسم. */
+.tabbar__link {
+  background: none;
+  box-shadow: none;
+  color: var(--text-dim);
+}
+.tabbar__link[data-current] {
+  color: var(--rr);
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  box-shadow: none;
+}
+
+/* ==========================================================================
+   ROUND 26 · مبدّل اللغة — الهاتف
+   الشكوى: لا يظهر على الهاتف. السبب: كان داخل <div> بأنماط سطرية
+   داخل شريط مقصوص الارتفاع، فينضغط إلى صفر أو يُقصّ. الحل: مقاس صريح
+   و flex-shrink: 0 وقائمة تفلت من overflow.
+   ========================================================================== */
+
+.topbar__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.lang { position: relative; display: inline-flex; flex: 0 0 auto; }
+
+.lang__btn {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--ctl-r-sm);
+  isolation: isolate;
+  -webkit-tap-highlight-color: transparent;
+  color: var(--text);
+  background-color: rgba(var(--rr-rgb), 0.06);
+  background-image: var(--thread);
+  background-size: var(--thread-size);
+  background-position: 10% 50%;
+  box-shadow: inset 0 0 0 1px var(--ctl-edge);
+}
+
+.lang[data-open="true"] .lang__btn {
+  color: var(--on-royal);
+  background-color: rgba(var(--rr-rgb), 0.9);
+  background-position: 70% 50%;
+  box-shadow: inset 0 0 0 1px var(--ctl-edge-lit);
+}
+
+.lang__btn:active { scale: 0.96; }
+
+.lang__code {
+  position: relative;
+  z-index: 2;
+  font: 600 0.74rem/1 var(--font-sans);
+  letter-spacing: 0.08em;
+}
+
+.lang__fog {
+  position: absolute;
+  inset: -3px;
+  z-index: -1;
+  border-radius: calc(var(--ctl-r-sm) + 3px);
+  pointer-events: none;
+  opacity: 0.34;
+  filter: blur(6px);
+  background: var(--btn-fog);
+}
+
+.lang__menu {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 120;
+  min-inline-size: 172px;
+  padding: 6px;
+  border-radius: var(--ctl-r-md);
+  background: color-mix(in oklab, var(--surface) 94%, transparent);
+  -webkit-backdrop-filter: blur(12px) saturate(126%);
+  backdrop-filter: blur(12px) saturate(126%);
+  box-shadow: inset 0 0 0 1px var(--ctl-edge), 0 16px 34px rgba(37, 5, 8, 0.2);
+}
+
+.lang__warp { display: grid; gap: 2px; }
+
+.lang__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  inline-size: 100%;
+  min-block-size: var(--tap, 48px);
+  padding-inline: 12px;
+  border: 0;
+  border-radius: var(--ctl-r-sm);
+  text-align: start;
+  color: var(--text-dim);
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lang__option[aria-selected="true"] {
+  color: var(--text);
+  background-color: rgba(var(--rr-rgb), 0.1);
+}
+
+.lang__option[aria-selected="true"]::after {
+  content: "";
+  margin-inline-start: auto;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+}
+
+.lang__option-code {
+  min-inline-size: 26px;
+  font: 600 0.72rem/1 var(--font-sans);
+  letter-spacing: 0.08em;
+  color: var(--rr);
+}
+
+.lang__option-name { font-size: 0.9rem; }
+
+/* الشريط يجب ألا يقصّ القائمة. */
+.topbar { overflow: visible; }
+
+/* ==========================================================================
+   ROUND 27 · الصورة الشخصية — الهاتف
+   نفس المادة، بمقاييس الهاتف: علامات زاوية أصغر، وتعتيم أخفّ لأن الشاشة
+   تُقرأ تحت الشمس.
+   ========================================================================== */
+
+.about__media {
+  border-color: var(--line-mid);
+  box-shadow: var(--elev-1), inset 0 1px 0 var(--edge-lift);
+  border-radius: var(--radius-lg);
+}
+
+.portrait {
+  position: relative;
+  display: block;
+  margin: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--surface-3);
+  isolation: isolate;
+}
+
+.portrait__img {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: var(--portrait-focus, 50% 24%);
+  opacity: 0;
+  transition: opacity var(--d-3) var(--e-out);
+}
+
+.portrait[data-state="ready"] .portrait__img { opacity: 1; }
+.portrait[data-state="failed"] .portrait__img { opacity: 0; }
+
+.portrait__skeleton {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    100deg,
+    var(--surface-3) 0%,
+    var(--surface-2) 42%,
+    var(--surface-3) 76%
+  );
+  background-size: 220% 100%;
+  animation: portrait-wait-m 1.6s var(--e-in-out) infinite;
+}
+
+.portrait[data-state="ready"] .portrait__skeleton { opacity: 0; animation: none; }
+
+@keyframes portrait-wait-m {
+  from { background-position: 120% 0; }
+  to { background-position: -60% 0; }
+}
+
+.portrait__fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 3.2rem;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.portrait[data-state="failed"] .portrait__fallback { opacity: 1; }
+.portrait[data-state="failed"] .portrait__skeleton { animation: none; }
+
+.portrait__mat {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(var(--gold-rgb), 0.2),
+    inset 0 0 48px rgba(37, 5, 8, 0.14);
+  background: linear-gradient(to top, rgba(37, 5, 8, 0.3), transparent 46%);
+}
+
+.portrait__tick {
+  position: absolute;
+  z-index: 3;
+  inline-size: 18px;
+  block-size: 18px;
+  pointer-events: none;
+  border: 1px solid rgba(var(--gold-rgb), 0.5);
+}
+
+.portrait__tick--a {
+  inset-block-start: 9px;
+  inset-inline-start: 9px;
+  border-block-end: 0;
+  border-inline-end: 0;
+}
+
+.portrait__tick--b {
+  inset-block-end: 9px;
+  inset-inline-end: 9px;
+  border-block-start: 0;
+  border-inline-start: 0;
+}
+
+.portrait__cap {
+  position: absolute;
+  z-index: 4;
+  inset-inline: 12px;
+  inset-block-end: 10px;
+  display: grid;
+  gap: 1px;
+  color: var(--on-royal);
+  text-shadow: var(--halo-invert);
+}
+
+.portrait__cap b {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.portrait__cap span {
+  font: 500 0.64rem/1.5 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(247, 236, 216, 0.7);
+}
+
+/* ROUND 27 · وجه الشعار — الهاتف */
+.topbar__mark { align-items: center; gap: 0.5rem; }
+
+.mark__face {
+  inline-size: 26px;
+  block-size: 26px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: var(--portrait-focus, 50% 24%);
+  box-shadow:
+    0 0 0 1px rgba(var(--gold-rgb), 0.4),
+    var(--elev-0);
+  background: var(--surface-3);
+}
+
+/* ==========================================================================
+   ROUND 27 · النوافذ — الهاتف
+   ========================================================================== */
+
+.card__btn {
+  border-radius: var(--win-r);
+  box-shadow:
+    var(--elev-1),
+    inset 0 1px 0 var(--edge-lift-royal);
+  transition:
+    box-shadow var(--d-2) var(--e-out),
+    translate var(--d-2) var(--e-out);
+}
+
+.card__btn:active {
+  box-shadow:
+    var(--elev-0),
+    inset 0 1px 0 var(--edge-lift-royal);
+  translate: 0 1px;
+}
+
+.card__pane { position: relative; }
+
+.card__pane::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow:
+    inset 0 1px 0 rgba(247, 236, 216, 0.06),
+    inset 0 -50px 70px -50px rgba(0, 0, 0, 0.5);
+}
+
+.card__kind,
+.card__title,
+.card__sub,
+.card__open {
+  text-shadow: var(--halo-invert);
+}
+
+/* الورقة الصاعدة: الإزاحة إلى الأعلى صحيحة هنا، ومعها خطّ ضوء على
+   الحافة العليا حتى تنفصل عن الصفحة خلفها. */
+.sheet {
+  border-radius: var(--win-r) var(--win-r) 0 0;
+  box-shadow: var(--elev-sheet), inset 0 1px 0 var(--edge-lift);
+}
+
+.sheet__grab span {
+  background: var(--line-mid);
+  box-shadow: 0 1px 0 var(--edge-lift);
+}
+
+.sheet__bar {
+  box-shadow:
+    0 1px 0 var(--line),
+    0 10px 20px -16px rgba(23, 20, 15, 0.5);
+}
+
+.sheet__hero {
+  border-radius: var(--win-r-sm);
+  box-shadow: var(--elev-0), inset 0 1px 0 var(--edge-lift);
+  overflow: hidden;
+}
+
+.sheet__facts > div {
+  border-radius: var(--radius);
+  box-shadow: var(--elev-0), inset 0 1px 0 var(--edge-lift);
+}
+
+/* الشريطان العلوي والسفلي: ارتفاع خفيف فقط حين يصيران مادة صلبة. */
+.topbar[data-solid] {
+  box-shadow: 0 10px 24px -20px rgba(23, 20, 15, 0.7);
+}
+
+.tabbar {
+  box-shadow:
+    0 -1px 0 var(--line),
+    0 -14px 30px -24px rgba(23, 20, 15, 0.6);
+}
+
+/* ==========================================================================
+   ROUND 27 · فيزياء الزر — الهاتف
+   لا :hover على اللمس. الحالة الساكنة تحمل كل المعلومة، واللمس يغوص.
+   ========================================================================== */
+
+.btn__warp,
+.ctl {
+  box-shadow:
+    var(--elev-0),
+    inset 0 1px 0 var(--edge-lift);
+  transition:
+    box-shadow var(--d-1) var(--e-out),
+    translate var(--d-1) var(--e-out);
+}
+
+.btn__warp.is-royal,
+.ctl.is-royal {
+  box-shadow:
+    var(--elev-1),
+    inset 0 1px 0 var(--edge-lift-royal),
+    inset 0 -1px 0 var(--edge-sink);
+}
+
+.btn:active .btn__warp,
+.ctl:active {
+  box-shadow:
+    inset 0 2px 5px rgba(37, 5, 8, 0.24),
+    inset 0 1px 0 var(--edge-sink);
+  translate: 0 1px;
+}
+
+.btn:focus-visible .btn__warp,
+.ctl:focus-visible {
+  outline: none;
+  box-shadow:
+    var(--elev-1),
+    inset 0 1px 0 var(--edge-lift),
+    0 0 0 2px rgba(var(--gold-rgb), 0.6);
+}
+
+.btn[disabled],
+.btn[aria-disabled="true"],
+.ctl[disabled],
+.ctl[aria-disabled="true"] {
+  opacity: 0.52;
+  filter: saturate(0.6);
+}
+
+.btn__warp.is-paper .btn__label,
+.ctl.is-paper {
+  text-shadow: var(--halo-ink);
+}
+
+.btn__warp.is-royal .btn__label,
+.ctl.is-royal {
+  text-shadow: var(--halo-royal);
+}
+
+.btn__warp.is-royal .btn__icon,
+.ctl.is-royal .btn__icon {
+  filter: drop-shadow(0 1px 0 rgba(37, 5, 8, 0.45));
+}
+
+.btn__warp.is-paper .btn__icon,
+.ctl.is-paper .btn__icon {
+  filter: drop-shadow(0 1px 0 rgba(255, 253, 248, 0.5));
+}
+
+/* ROUND 27 · أزرار الأيقونة — الهاتف */
+.sheet__close,
+.card__copy,
+.lang__btn {
+  box-shadow: var(--elev-0), inset 0 1px 0 var(--edge-lift);
+  transition:
+    box-shadow var(--d-1) var(--e-out),
+    translate var(--d-1) var(--e-out);
+}
+
+.sheet__close:active,
+.card__copy:active,
+.lang__btn:active {
+  box-shadow: inset 0 2px 4px rgba(37, 5, 8, 0.22);
+  translate: 0 1px;
+}
+
+.lang__menu {
+  border-radius: var(--win-r-sm);
+  box-shadow: var(--elev-2), inset 0 1px 0 var(--edge-lift);
+}
+
+/* ROUND 27 · درجات الهالة — الهاتف */
+.mhero__title,
+.sec__title,
+.numbers__value,
+.contact__title,
+.sheet__title {
+  text-shadow: var(--halo-ink-strong);
+}
+
+.sec__index,
+.card__kind,
+.sheet__crumb,
+.tabbar__label,
+.about__fact dt,
+.sheet__facts dt {
+  text-shadow: var(--halo-mono);
+}
+
+/* داخل البطاقة الداكنة تبقى الهالة معكوسة، ولو كان المحدّد أعلاه يطابقه. */
+.card .card__kind {
+  text-shadow: var(--halo-invert);
+}
+
+.sheet {
+  text-shadow: var(--halo-ink);
+}
+
+/* ==========================================================================
+   ROUND 28 · البديل يُرى، والهيكل ينام
+   ========================================================================== */
+
+.portrait__fallback {
+  color: var(--text-dim);
+  background: var(--surface-2);
+  font-weight: 600;
+}
+
+/* الهيكل يتحرّك أثناء الانتظار فقط. في النجاح والفشل حركة دائمة بلا سبب. */
+.portrait[data-state="failed"] .portrait__skeleton {
+  opacity: 0;
+  animation: none;
+}
+
+/* لا تلميح دائم على الصورة: يضعه المُطلِق ويمسحه (STEP 3). */
+.portrait__img { will-change: auto; }
+
+/* ==========================================================================
+   ROUND 28 · المرشّحات تثبُت — الهاتف
+   ========================================================================== */
+
+.card__poster {
+  filter: grayscale(1) contrast(1.05);
+  transition:
+    filter var(--d-2) linear,
+    opacity var(--d-2) linear;
+}
+
+.card__poster[data-fit="contain"] {
+  filter: grayscale(0.8) contrast(1.02);
+}
+
+.card__btn:active .card__poster,
+.card__btn:active .card__poster[data-fit="contain"] {
+  filter: grayscale(0) contrast(1.02);
+}
+
+.card__wash {
+  transition: opacity var(--d-2) linear;
+}
+
+/* الأيقونة لا تحتاج مرشّح إضاءة دائماً: لون أفتح يؤدّي العمل بلا طبقة مرشّح. */
+.card__kind {
+  filter: none;
+  color: color-mix(in oklab, currentColor 72%, #ffffff);
+}
+
+/* ==========================================================================
+   ROUND 28 · ميزانية الزجاج — الهاتف
+   على الهاتف القاعدة أقسى: زجاج واحد فقط، وهو الشريط العلوي.
+   ========================================================================== */
+
+.btn__warp,
+.ctl,
+.lang__btn,
+.mp--m .mp__action,
+.lang__menu {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.lang__menu {
+  background-color: rgba(255, 253, 248, 0.97);
+}
+
+.topbar[data-solid] {
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* ==========================================================================
+   ROUND 28 · الدخول — الهاتف
+   ========================================================================== */
+
+[data-reveal] {
+  transition:
+    opacity var(--d-1) var(--e-out),
+    translate var(--d-2) var(--e-out),
+    scale var(--d-2) var(--e-out),
+    clip-path var(--d-3) var(--e-out);
+}
+
+[data-reveal="up"] { translate: 0 10px; }
+[data-reveal="down"] { translate: 0 -10px; }
+
+[data-reveal="blur"] {
+  filter: none;
+  scale: 0.99;
+  opacity: 0;
+}
+
+[data-reveal="blur"].is-in {
+  scale: 1;
+  opacity: 1;
+}
+
+[data-reveal].is-in {
+  translate: 0 0;
+}
+
+
+
+
+/* ==========================================================================
+   ROUND 28.1 · الصورة تملأ إطارها
+
+   كانت `block-size: 100%` تستند إلى ارتفاع مشتقّ من `aspect-ratio`، وهو ارتفاع
+   لا تستند إليه النسب المئوية بثقة. النتيجة: صورة بنسبتها الأصلية في أعلى
+   إطار طويل. الطبقة المطلقة تحسم المسألة بلا حساب.
+
+   وترتيب الرسم يُصحَّح في السطر نفسه: طبقة الانتظار مطلقة بـ z-index 0، وكانت
+   الصورة جارية بلا z-index، أي تحتها. الآن الصورة عند 1: فوق الانتظار، وتحت
+   اللوح (2) والعلامتين (3) والتسمية (4).
+   ========================================================================== */
+
+.portrait__img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+  object-position: var(--portrait-focus, 50% 24%);
+}
+
+/* ==========================================================================
+   ROUND 30 · الإطار على الهاتف
+   ========================================================================== */
+
+.portrait {
+  background: var(--orn-ink);
+}
+
+.portrait__cap {
+  inset-inline: 0;
+  inset-block-end: 0;
+  padding: 2.6rem 12px 11px;
+  background: linear-gradient(
+    to top,
+    rgba(37, 5, 8, 0.7) 0%,
+    rgba(37, 5, 8, 0.34) 46%,
+    rgba(37, 5, 8, 0) 100%
+  );
+}
+
+.portrait__mat {
+  opacity: 0.55;
+}
+
+/* ==========================================================================
+   ROUND 30 · النوافذ على الهاتف: لا إطار داخلي، الموقع يلمس الحواف
+   ========================================================================== */
+
+/* 1 · الجسم: بلا حدّ، والعمق ظلّ خارجي أخفّ من الحاسوب. */
+.card__btn {
+  position: relative;
+  border: 0;
+  border-radius: var(--win-r);
+  box-shadow:
+    0 0 0 1px var(--edge-sink),
+    var(--elev-2);
+  transition:
+    box-shadow var(--d-3) var(--e-out),
+    border-radius var(--d-2) var(--e-out);
+}
+
+.card__btn:active {
+  border-color: transparent;
+  box-shadow:
+    0 0 0 1px rgba(var(--gold-rgb), 0.22),
+    var(--elev-2);
+}
+
+/* 2 · اللوحة: مشبك معلن بعمود واحد وصفّين، لمنع انضغاط المحتوى. */
+.card__pane {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  align-content: stretch;
+}
+
+.card__copy {
+  position: relative;
+  z-index: 2;
+  align-self: end;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+.card__foot {
+  position: relative;
+  z-index: 2;
+  align-self: end;
+  gap: var(--s-4);
+  border-top-color: rgba(247, 236, 216, 0.1);
+}
+
+/* 3 · طبقة الموقع الحيّ والملصق تملأ النافذة. */
+.pw {
+  inset: -1px;
+  z-index: 0;
+  border-radius: inherit;
+  box-shadow: none;
+}
+
+.pw__frame {
+  border-radius: 0;
+}
+
+.card__pane::after {
+  z-index: 1;
+  box-shadow:
+    inset 0 1px 0 rgba(247, 236, 216, 0.06),
+    inset 0 -100px 100px -75px rgba(37, 5, 8, 0.86);
+}
+
+.card__poster[data-fit="contain"] {
+  inset: 0;
+}
+
+/* ==========================================================================
+   ROUND 30 · لون زرّ اللغة
+   ========================================================================== */
+.lang__code,
+.lang__btn {
+  color: var(--on-royal);
+  text-shadow: var(--halo-invert);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+}
+
+.lang__btn[aria-expanded="true"],
+.lang__btn:hover {
+  color: var(--gold);
+}
+
+/* --- the contact pair, and the one download in the site ------------------ */
+
+/* On a phone the pair is a column: two full-width plates, the mail plate first
+   because copying an address is the action that needs the wider target. */
+.contact__pair {
+  display: grid;
+  gap: var(--s-4);
+}
+
+/* A finger has no hover. :active is the only state that matters here, and it is
+   a colour change, not a transform: nothing to composite, nothing to schedule. */
+.wp {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-4);
+  border: 1px solid rgba(var(--gold-rgb), 0.26);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wp:active {
+  background: var(--surface-2);
+}
+
+.wp__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.4rem;
+  height: 2.4rem;
+  border: 1px solid rgba(var(--gold-rgb), 0.28);
+  border-radius: 50%;
+  color: var(--gold);
+}
+
+.wp__copy {
+  display: grid;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.wp__label {
+  font-weight: 600;
+}
+
+.wp__value {
+  font: 500 0.8rem/1.2 var(--font-mono);
+  color: var(--text-faint);
+}
+
+/* The hint is desktop copy: on a phone the arrow already says "leaves this
+   page", and the row is too narrow to spend on a second label. */
+.wp__hint {
+  display: none;
+}
+
+.wp__go {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-faint);
+}
+
+/* ── The CV download, rebuilt for a thumb ──────────────────────────────────
+   Same rail, same glider, same three cells. What changes is that the plate
+   fills the column instead of sitting beside something, each row is a 44px
+   target, and intent is :active rather than :hover - a hover rule on a touch
+   screen stays lit after the finger leaves and then lies about where you are. */
+.cv {
+  --cv-cells: 3;
+  position: relative;
+  display: grid;
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv__head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+
+.cv__mark {
+  display: inline-flex;
+  color: var(--accent);
+}
+
+.cv__copy {
+  display: grid;
+  gap: 0.18rem;
+  min-width: 0;
+}
+
+.cv__label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.cv__meta {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.cv__seg {
+  --cv-cells: 3;
+  position: relative;
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  padding-inline-start: var(--s-4);
+}
+
+.cv__rail {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(var(--rr-rgb), 0) 0%,
+    rgba(var(--rr-rgb), 0.5) 20%,
+    rgba(var(--rr-rgb), 0.5) 80%,
+    rgba(var(--rr-rgb), 0) 100%
+  );
+  pointer-events: none;
+}
+
+.cv__glider {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  height: calc(100% / var(--cv-cells));
+  background: linear-gradient(
+    180deg,
+    rgba(var(--rr-rgb), 0) 0%,
+    var(--rr-lit) 28%,
+    var(--gold) 72%,
+    rgba(var(--gold-rgb), 0) 100%
+  );
+  transform: translateY(0%);
+  transition: transform 0.42s cubic-bezier(0.37, 1.95, 0.66, 0.56);
+}
+
+.cv__glider::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: -1px;
+  top: 50%;
+  width: 3px;
+  height: 60%;
+  transform: translateY(-50%);
+  background: var(--gold-lit);
+  filter: blur(6px);
+  opacity: 0.75;
+}
+
+.cv__glider::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 0;
+  width: 110px;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    rgba(var(--gold-rgb), 0.13) 0%,
+    rgba(var(--gold-rgb), 0) 100%
+  );
+  pointer-events: none;
+}
+
+[dir="rtl"] .cv__glider::after {
+  background: linear-gradient(
+    270deg,
+    rgba(var(--gold-rgb), 0.13) 0%,
+    rgba(var(--gold-rgb), 0) 100%
+  );
+}
+
+.cv__seg[data-rest="0"] .cv__glider {
+  transform: translateY(0%);
+}
+
+.cv__seg[data-rest="1"] .cv__glider {
+  transform: translateY(100%);
+}
+
+.cv__seg[data-rest="2"] .cv__glider {
+  transform: translateY(200%);
+}
+
+.cv__seg:has(
+    .cv__opt:nth-of-type(1):is(
+        :active,
+        :focus-visible,
+        [data-state="busy"],
+        [data-state="done"]
+      )
+  )
+  .cv__glider {
+  transform: translateY(0%);
+}
+
+.cv__seg:has(
+    .cv__opt:nth-of-type(2):is(
+        :active,
+        :focus-visible,
+        [data-state="busy"],
+        [data-state="done"]
+      )
+  )
+  .cv__glider {
+  transform: translateY(100%);
+}
+
+.cv__seg:has(
+    .cv__opt:nth-of-type(3):is(
+        :active,
+        :focus-visible,
+        [data-state="busy"],
+        [data-state="done"]
+      )
+  )
+  .cv__glider {
+  transform: translateY(200%);
+}
+
+.cv__opt {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--s-3);
+  /* 44px: a thumb target, and tall enough that the three cells cannot be hit
+     by accident on the way to the one beside them. */
+  min-height: var(--ctl-h-md);
+  padding: 0.4rem var(--s-3);
+  color: var(--text-faint);
+  text-decoration: none;
+  transition: color 0.2s var(--e-out);
+}
+
+.cv__opt:active {
+  color: var(--gold-lit);
+}
+
+.cv__opt[data-current="true"] {
+  color: var(--text);
+}
+
+.cv__opt-code {
+  min-width: 2.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  transition: opacity 0.18s var(--e-out);
+}
+
+.cv__opt-size {
+  justify-self: end;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  opacity: 0.7;
+}
+
+.cv__opt-done {
+  position: absolute;
+  inset-inline-start: var(--s-3);
+  top: 50%;
+  display: inline-flex;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.18s var(--e-out);
+}
+
+.cv__opt[data-state="busy"] .cv__opt-code {
+  opacity: 0.55;
+}
+
+.cv__opt[data-state="done"] {
+  color: var(--gold);
+}
+
+.cv__opt[data-state="done"] .cv__opt-code {
+  opacity: 0;
+}
+
+.cv__opt[data-state="done"] .cv__opt-done {
+  opacity: 1;
+}
+
+.cv__opt[data-state="failed"] .cv__opt-code {
+  opacity: 0.45;
+}
+
+.cv__opt-line {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+.cv__opt[data-state="busy"] .cv__opt-line {
+  opacity: 1;
+  animation: cv-sweep-m 0.9s var(--e-out) infinite;
+}
+
+@keyframes cv-sweep-m {
+  0% {
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+  }
+
+  45% {
+    transform: scaleX(1);
+    transform-origin: 0 50%;
+  }
+
+  55% {
+    transform: scaleX(1);
+    transform-origin: 100% 50%;
+  }
+
+  100% {
+    transform: scaleX(0);
+    transform-origin: 100% 50%;
+  }
+}
+
+.cv__live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+[data-quality="low"] .cv__glider::before {
+  filter: none;
+  opacity: 0.45;
+}
+
+[data-quality="low"] .cv__glider::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cv__opt,
+  .cv__opt-code,
+  .cv__opt-done,
+  .cv__glider {
+    transition: none;
+  }
+
+  .cv__opt[data-state="busy"] .cv__opt-line {
+    animation: none;
+    opacity: 0.7;
+    transform: scaleX(1);
+  }
+}
+

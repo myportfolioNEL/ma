@@ -1,0 +1,18 @@
+{
+  "version": "2026-08",
+  "note": "Regenerate with: node scripts/restore-cv.mjs --write-manifest",
+  "files": {
+    "ar": {
+      "bytes": 124897,
+      "sha256": "5449188060897f999e5eebccc434ebdba4d5404536c0b7cf8d464c44e57fd1c8"
+    },
+    "en": {
+      "bytes": 54364,
+      "sha256": "90e6c1037226d50398524351b55a83bf9bbedaef487d1b7f845c73b60ba9118c"
+    },
+    "fr": {
+      "bytes": 56322,
+      "sha256": "fe6e7a8fd5c88a2e08a4a7b55b92b590213f10fb062dec573c684b086b482327"
+    }
+  }
+}

@@ -1,0 +1,589 @@
+/* ==========================================================================
+   base.css — reset, document shell, typography primitives, layout helpers.
+
+   Scrolling rules of the house:
+     - Lenis owns the page scroll. CSS never sets scroll-behavior.
+     - html.is-locked freezes the page while an overlay is open.
+     - html.is-loading freezes it while the preloader is on screen.
+     - Nothing on the page uses content-visibility. It saved a little paint
+       time and cost the one thing that matters here: a scrollbar whose length
+       stops changing while you drag it.
+
+   Painting rules of the house (this is what keeps the site fast):
+     - Exactly three fixed full-screen layers exist: the WebGL field (.gl,
+       z-index 0), the print tint (.vignette, z-index 1) and the grain
+       (.grain, z-index 2). Nothing else may be fixed and full-screen, because
+       every such layer is another full-viewport composite on every frame.
+     - Only transform, opacity and filter are animated. No animation in this
+       codebase touches width, height, top, left or letter-spacing.
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: auto; /* Lenis owns scrolling. Never fight it with CSS. */
+  /* Reserve the scrollbar track so locking the page cannot shift the layout. */
+  scrollbar-gutter: stable;
+}
+
+body {
+  min-height: 100svh;
+  background: var(--surface);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--t-body);
+  line-height: var(--lh-body);
+  font-weight: 400;
+  font-variation-settings: var(--vf-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip;
+  /* Kill the rubber-band chain: a sheet reaching its end must not drag the
+     page behind it. */
+  overscroll-behavior-y: none;
+  text-rendering: optimizeLegibility;
+}
+
+/* Lenis adds these. Without them the wheel feels doubled. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+/* Page frozen behind an overlay, and while the preloader is on screen. */
+html.is-locked,
+html.is-loading {
+  overflow: hidden;
+}
+
+/* Anything that scrolls on its own carries data-lenis-prevent: Lenis hands
+   the wheel and touch stream back to the browser for that subtree. */
+[data-lenis-prevent] {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+img {
+  height: auto;
+  border: 0;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* On touch devices the tap highlight fires before our own states and looks
+   like a bug. Our :active styles replace it. */
+@media (hover: none) {
+  a,
+  button {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* --- Typography primitives ------------------------------------------------
+   Weight and width are variable-font axes now, not static weights. That is
+   what lets a headline be genuinely wide and heavy while body copy stays
+   quiet, using one family and one download.
+   -------------------------------------------------------------------------- */
+
+.display {
+  font-family: var(--font-sans);
+  font-size: var(--t-display);
+  line-height: var(--lh-display);
+  letter-spacing: var(--ls-display);
+  font-variation-settings: var(--vf-display);
+  text-wrap: balance;
+}
+
+.h1 {
+  font-size: var(--t-h1);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--ls-display);
+  font-variation-settings: var(--vf-heading);
+}
+
+.h2 {
+  font-size: var(--t-h2);
+  line-height: 1.08;
+  letter-spacing: var(--ls-tight);
+  font-variation-settings: var(--vf-heading);
+}
+
+.h3 {
+  font-size: var(--t-h3);
+  line-height: 1.2;
+  letter-spacing: var(--ls-tight);
+  font-variation-settings: "wght" 520, "wdth" 100, "opsz" 24;
+}
+
+.serif {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: -0.01em;
+}
+
+.lead {
+  font-size: var(--t-lead);
+  line-height: 1.5;
+  color: var(--text-dim);
+  max-width: 52ch;
+  text-wrap: pretty;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: var(--ls-mono);
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.dim {
+  color: var(--text-dim);
+}
+.faint {
+  color: var(--text-faint);
+}
+.accent {
+  color: var(--accent);
+}
+
+.prose p + p {
+  margin-top: var(--s-4);
+}
+.prose p {
+  max-width: var(--maxw-text);
+  color: var(--text-dim);
+  text-wrap: pretty;
+}
+
+/* --- Split type -----------------------------------------------------------
+   lib/split.ts wraps words in .split-word and characters in .split-char, and
+   puts an aria-label on the parent so a screen reader still hears one string
+   instead of a stack of letters.
+
+   Two consumers share these spans: the hero's entrance animation and
+   useTextDistort, which bends the characters around the pointer. --distort is
+   written per character by that hook (0 at rest, 1 under the pointer) and is
+   used here for colour only — transform is owned by JS, and nothing here may
+   animate a property that costs layout.
+   -------------------------------------------------------------------------- */
+
+.split-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.split-char {
+  display: inline-block;
+  transform-origin: 50% 90%;
+  backface-visibility: hidden;
+  color: color-mix(
+    in srgb,
+    var(--accent) calc(var(--distort, 0) * 88%),
+    currentColor
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-char {
+    color: inherit;
+  }
+}
+
+/* --- Layout --------------------------------------------------------------- */
+
+.shell {
+  width: 100%;
+  max-width: var(--maxw);
+  margin-inline: auto;
+  /* max() keeps content clear of a notch in landscape without adding padding
+     on devices that have none. */
+  padding-left: max(var(--gutter), var(--safe-l));
+  padding-right: max(var(--gutter), var(--safe-r));
+}
+
+/* Utility: force a line of a display heading onto its own row. */
+.block {
+  display: block;
+}
+
+/* Anchor jumps must clear the fixed header. */
+.section,
+.hero {
+  scroll-margin-top: calc(var(--header-h) + 12px);
+}
+
+.section {
+  position: relative;
+  z-index: var(--z-content);
+  padding-block: var(--section-y);
+}
+
+.section--tight {
+  padding-block: clamp(var(--s-8), 8vh, var(--s-9));
+}
+
+.rule {
+  height: 1px;
+  width: 100%;
+  background: var(--line);
+  border: 0;
+}
+
+.skip {
+  position: fixed;
+  top: var(--s-3);
+  left: var(--s-3);
+  z-index: var(--z-preloader);
+  padding: var(--s-3) var(--s-4);
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-radius: var(--radius);
+  transform: translateY(-160%);
+  transition: transform var(--d-2) var(--e-out);
+}
+.skip:focus-visible {
+  transform: translateY(0);
+}
+
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- Paper grain: one fixed layer, GPU-composited, never repainted -------
+   On dark themes grain is added light; on paper it has to be subtractive, or
+   the page looks dusty instead of printed. multiply does that. */
+
+.grain {
+  position: fixed;
+  /* الحركة لا تتجاوز 6%؛ -50% كانت تخلط مساحة 2.25 ضعف الشاشة في كل إطار
+     مقابل لا شيء. -8% تغطّي الإزاحة كلّها وتخفض المساحة إلى 1.17 ضعف. */
+  inset: -8%;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.035;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  will-change: transform;
+  animation: grain 7s steps(6) infinite;
+}
+
+@keyframes grain {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  20% {
+    transform: translate3d(-6%, 4%, 0);
+  }
+  40% {
+    transform: translate3d(4%, -6%, 0);
+  }
+  60% {
+    transform: translate3d(-4%, -4%, 0);
+  }
+  80% {
+    transform: translate3d(6%, 6%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain {
+    animation: none;
+  }
+}
+
+/* The grain is a full-screen animated layer. On a phone it is the single
+   easiest frame-rate win available, and nobody has ever noticed its absence. */
+@media (max-width: 760px) {
+  .grain {
+    animation: none;
+    opacity: 0.028;
+  }
+}
+
+/* --- Print tint that ties the WebGL field into the page ------------------
+   A warm multiplied edge, the way ink sits heavier at the edge of a sheet.
+   Multiplying instead of overlaying a dark colour keeps the paper warm rather
+   than turning it grey. */
+
+.vignette {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  /* الخلط هنا لم يكن يشتري شيئاً: الطبقة تحته ورق فاتح ثابت، فتركيب لون
+     دافئ شفّاف فوقه يُعطي النتيجة ذاتها بلا تمريرة خلط لكل بكسل في كل إطار. */
+  background: radial-gradient(
+    120% 90% at 50% 0%,
+    rgba(120, 104, 74, 0) 38%,
+    rgba(120, 104, 74, 0.13) 76%,
+    rgba(104, 88, 60, 0.2) 100%
+  );
+}
+
+/* ==========================================================================
+   ROUND 26 · قانون الاتجاه
+   الاتجاه يقلب ترتيب الصناديق. لا يقلب المحتوى أبداً.
+   ========================================================================== */
+
+/* أي نص لاتيني داخل صفحة عربية: معزول باتجاهه الخاص، دائماً، بلا شرط.
+   هذه ليست قاعدة RTL — هي قاعدة عامة، ولهذا لا تنكسر عند تبديل اللغة. */
+.ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+/* النص العربي داخل واجهة لاتينية (اسم اللغة في القائمة مثلاً). */
+.rtl {
+  direction: rtl;
+  unicode-bidi: isolate;
+}
+
+/* الأيقونات الاتجاهية وحدها تُعكس: سهم يشير يميناً/يساراً، سهم رجوع، شيفرون.
+   السهم القُطري (↗ يفتح في تبويب) والسهم النازل (↓ انزل) ليسا اتجاهيين:
+   عكسهما خطأ في كل اللغات. */
+[dir="rtl"] .icon--flip {
+  scale: -1 1;
+}
+
+/* ==========================================================================
+   ROUND 27 · هالة النصّ — القاعدة الواحدة
+
+   text-shadow تُورَّث. لذلك تُكتب هنا مرّة، فتصل إلى كل حرف في الموقع
+   دون محدّد واحد إضافي. ما تحته ليس إضافات، بل تصحيحات: مواضع ترث
+   الهالة الخطأ لوناً، أو لا يجوز أن تحمل هالة أصلاً.
+   ========================================================================== */
+
+body {
+  text-shadow: var(--halo-ink);
+}
+
+/* 1) الأسطح الداكنة. الهالة الورقية فوق مادة داكنة تصير ضباباً أبيض
+      حول الحرف. كل جذر داكن يُعيد التصريح مرّة واحدة للشجرة كلّها. */
+.win,
+.card,
+.preloader,
+.pw,
+.footer[data-invert],
+[data-material="invert"] {
+  text-shadow: var(--halo-invert);
+}
+
+/* 2) ما لا يجوز أن يحمل هالة أبداً: حقول الإدخال والشيفرة.
+      القارئ يحتاج حرفاً حادّاً هنا، لا حرفاً جميلاً. */
+input,
+textarea,
+select,
+option,
+code,
+pre,
+kbd,
+samp {
+  text-shadow: var(--halo-off);
+}
+
+/* 3) الاسم المتحرّك حرفاً حرفاً. إزاحة صلبة واحدة، بلا انتشار.
+      أي هالة ذات blur هنا تعني إعادة رسم لكل حرف في كل إطار. */
+.ln,
+.ln__word,
+.ln__char {
+  text-shadow: var(--halo-name);
+}
+
+/* 4) أثناء التشويه الفعلي (مرشّح SVG مُفعّل) تُطفأ الهالة تماماً:
+      مرشّح + ظلّ نصّ على العنصر نفسه أغلى ما يُطلب من المتصفّح. */
+[data-warping="true"],
+[data-warping="true"] * {
+  text-shadow: var(--halo-off);
+}
+
+/* 5) مفتاح هروب لأي حالة استثنائية لاحقة. */
+.no-halo,
+.no-halo * {
+  text-shadow: var(--halo-off);
+}
+
+/* ==========================================================================
+   ROUND 28 · ميزانية الرسم
+
+   content-visibility: auto يقول للمتصفّح: تجاوز تخطيط وتنقيط ما داخل هذا
+   الصندوق ما دام خارج الشاشة. وcontain-intrinsic-size: auto <طول> يحفظ
+   آخر ارتفاع مقيس فعلياً، فلا يقفز شريط التمرير ولا تنزاح مواضع
+   المُطلِقات. هذا الزوج معاً آمن؛ أحدهما وحده ليس كذلك.
+
+   القسم الأول مستثنى: هو دائماً في الشاشة، وإخفاؤه عن المحرّك يؤخّر
+   أوّل رسم بدل أن يُسرّعه.
+   ========================================================================== */
+
+.section {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 1000px;
+}
+
+#hero,
+.hero,
+.section:first-of-type {
+  content-visibility: visible;
+  contain-intrinsic-size: none;
+}
+
+/* الطبقات الثابتة لا تدخل هذا النظام أبداً: إخفاؤها عن المحرّك يعني اختفاءها. */
+.header,
+.topbar,
+.tabbar,
+.rail,
+.grain,
+.vignette,
+.gl,
+.preloader,
+.case,
+.sheet {
+  content-visibility: visible;
+}
+
+/* عزل التخطيط والرسم: تغيير داخل بطاقة لا يُجبر الصفحة على إعادة الحساب. */
+.win,
+.card,
+.about__media,
+.about__facts {
+  contain: layout paint;
+}
+
+/* ==========================================================================
+   ROUND 28 · الهالة حيث تُرى، والنسخة الخفيفة حين تُستحقّ
+   ========================================================================== */
+
+/* الجولة 27 ورّثت هالة مضبَّبة لكل حرف في الموقع. العمق الذي أرادته يأتي من
+   العناوين، لا من الفقرات. الفقرة تأخذ خيطاً بلا نصف قطر. */
+body {
+  text-shadow: 0 1px 0 rgba(37, 5, 8, 0.07);
+}
+
+h1, h2, h3,
+.ln, .ln__word, .ln__char,
+.section__title,
+.win__title,
+.card__title,
+.preloader__name {
+  text-shadow: var(--halo-ink);
+}
+
+/* --- النسخة الخفيفة ---------------------------------------------------
+   لا تحذف ميزة، بل تحذف ما لا يراه أحد ويدفعه الجميع. */
+
+[data-quality="low"] .grain {
+  display: none;
+}
+
+[data-quality="low"] .vignette {
+  opacity: 0.6;
+}
+
+[data-quality="low"] * {
+  text-shadow: none;
+}
+
+[data-quality="low"] .win__wash,
+[data-quality="low"] .card__wash {
+  mix-blend-mode: normal;
+  opacity: 0.42;
+}
+
+[data-quality="low"] .header[data-solid],
+[data-quality="low"] .topbar[data-solid],
+[data-quality="low"] .case__scrim,
+[data-quality="low"] .lang__menu,
+[data-quality="low"] .pw__wait {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* الألواح تعوّض الضباب المفقود بكثافة، وإلاّ صار النصّ فوق النصّ. */
+[data-quality="low"] .header[data-solid],
+[data-quality="low"] .topbar[data-solid] {
+  background-color: rgba(239, 235, 225, 0.97);
+}
+
+[data-quality="low"] .case__scrim {
+  background-color: rgba(23, 20, 15, 0.62);
+}
+
+/* الظلال الثلاثية تصير طبقتين. الطبقة الثالثة هي الأوسع والأغلى. */
+[data-quality="low"] {
+  --elev-1: 0 1px 1px rgba(23, 20, 15, 0.06), 0 4px 12px rgba(23, 20, 15, 0.08);
+  --elev-2: 0 1px 2px rgba(23, 20, 15, 0.07), 0 8px 22px rgba(23, 20, 15, 0.1);
+  --elev-3: 0 2px 4px rgba(23, 20, 15, 0.09), 0 14px 34px rgba(23, 20, 15, 0.14);
+  --elev-panel: 0 0 0 1px rgba(23, 20, 15, 0.06), 0 18px 50px rgba(23, 20, 15, 0.2);
+  --elev-sheet: 0 -1px 0 rgba(23, 20, 15, 0.08), 0 -14px 34px rgba(23, 20, 15, 0.16);
+}
+
+/* الدخول يبقى، لكن بلا قطع مسار ولا تدرّج مقياس. */
+[data-quality="low"] [data-reveal] {
+  transition:
+    opacity var(--d-1) var(--e-out),
+    translate var(--d-1) var(--e-out);
+  clip-path: none;
+  scale: 1;
+}
+
+[data-quality="low"] .portrait__skeleton {
+  animation: none;
+}
+
+
