@@ -78,7 +78,7 @@ export const profile: Profile = {
   portraitRatio: "4 / 5",
   /* موضع القصّ رأسياً. الوجوه تجلس في الثلث الأعلى، لا في المنتصف. */
   portraitFocus: "50% 24%",
-  siteUrl: "https://noureddinelmobaraki-web.github.io/portfolio/",
+  siteUrl: "https://myportfolionel.github.io/ma/",
 
   heroLead:
     "I build web products end to end: interface, motion, state, tests, release. Three of them are live. I shipped those on my own, and I work the same way inside a team.",
