@@ -1,5 +1,6 @@
 import type { Channel, Fact, Language, NavItem, Profile } from "../types";
-import portraitLocal from "../assets/portrait.webp";
+
+const portraitRemote = "https://noureddinelmobaraki-web.github.io/nl-audio-cdn/Mee.webp";
 
 /**
  * profile.ts — identity, copy and contact channels.
@@ -66,17 +67,11 @@ export const profile: Profile = {
   status: "Available for work",
   email: "noureddinelmobaraki@gmail.com",
   phoneDisplay: "+212 612-806932",
-  /* الصورة تُبنى مع التطبيق: نفس الأصل، اسم مبصوم، وذاكرة طويلة الأجل.
-     وإن غاب الملف يسقط البناء بخطأ صريح بدل أن يسقط الإطار بصمت. */
-  portraitUrl: portraitLocal,
-  /* الملفّ المحلّي أوّلاً: مبصوم، ومخزَّن طويل الأمد، ولا طلب شبكة إضافياً.
-     وخلفه نسخة الشبكة نفسها من الصورة نفسها. About.tsx يمشي في القائمة
-     بالترتيب، فإن خرج المحلّي تالفاً من أيّ تصدير أو استنساخ، يظهر الوجه من
-     الشبكة بدل أن يظهر إطار فارغ. */
-  portraitSources: [
-    portraitLocal,
-    "https://noureddinelmobaraki-web.github.io/nl-audio-cdn/Mee.webp",
-  ],
+  /* The local WebP was removed because it became corrupted in the repository
+     after being written as text instead of binary. Keep the image outside the
+     bundle and load the known-good hosted copy directly. */
+  portraitUrl: portraitRemote,
+  portraitSources: [portraitRemote],
   /* النسبة التي يُحجَز بها المكان قبل وصول الملف. الإطار يقصّ إلى هذه
      النسبة مهما كانت أبعاد الملف الأصلية، فلا يقفز التخطيط ولا تُشوَّه
      الصورة إن استُبدلت لاحقاً بأخرى. */
