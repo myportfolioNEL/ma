@@ -5,13 +5,17 @@
   "type": "module",
   "description": "Portfolio of Noureddine El Mobaraki — front-end engineer, Casablanca.",
   "scripts": {
+    "predev": "node scripts/restore-cv.mjs",
     "dev": "vite",
-    "build": "node scripts/audit-css-vars.mjs && node scripts/audit-assets.mjs && node scripts/audit-cv.mjs && tsc -b && vite build",
+    "build": "node scripts/restore-cv.mjs && node scripts/audit-css-vars.mjs && node scripts/audit-assets.mjs && node scripts/audit-binaries.mjs && node scripts/audit-cv.mjs && tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "audit:css": "node scripts/audit-css-vars.mjs",
+    "audit:assets": "node scripts/audit-assets.mjs",
+    "audit:binaries": "node scripts/audit-binaries.mjs",
     "audit:cv": "node scripts/audit-cv.mjs",
     "cv:restore": "node scripts/restore-cv.mjs",
+    "verify": "npm run typecheck && npm test && npm run build",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -31,3 +31,11 @@ pnpm-debug.log*
 .env
 .env.local
 .env.*.local
+
+# generated binaries — never commit these.
+# The CV PDFs are built by scripts/restore-cv.mjs from the ASCII Base64 sources
+# in scripts/cv-b64/, and verified against scripts/cv-manifest.json. Committing
+# the PDFs themselves is what destroyed them: a binary carried through a
+# text-only channel comes out with every non-UTF-8 byte replaced by EF BF BD.
+# The Base64 sources are 7-bit ASCII and survive that channel intact.
+public/cv/*.pdf

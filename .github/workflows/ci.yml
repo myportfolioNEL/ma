@@ -18,9 +18,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: '22.14.0'
           cache: 'npm'
@@ -31,6 +31,13 @@ jobs:
       - name: Install
         run: npm ci --no-audit --no-fund
 
+      # public/cv/*.pdf is not tracked: it is generated from the Base64 sources
+      # in scripts/cv-b64/, which are ASCII and therefore cannot be damaged by a
+      # text-only channel. Restoring here means every following step sees a
+      # complete tree, and a checksum mismatch fails the job before Build.
+      - name: Restore generated binaries
+        run: node scripts/restore-cv.mjs
+
       - name: Typecheck
         run: npm run typecheck
 
@@ -40,7 +47,7 @@ jobs:
       - name: Build
         run: npm run build
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: dist
           path: dist
