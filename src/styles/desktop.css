@@ -4263,7 +4263,7 @@ code {
   --cv-cells: 3;
   position: relative;
   display: grid;
-  grid-auto-rows: minmax(0, 1fr);
+  grid-auto-rows: minmax(2.25rem, auto);
   padding-inline-start: var(--s-4);
 }
 
@@ -4355,138 +4355,115 @@ code {
   transform: translateY(200%);
 }
 
-/* Intent: the cell you are pointing at, tabbed to, or waiting on. Higher
-   specificity than the rest rules, so it wins wherever both apply. If :has is
-   unsupported the glider simply stays on the resting cell - the control still
-   works, it just stops narrating. */
-.cv__seg:has(
-    .cv__opt:nth-of-type(1):is(
-        :hover,
-        :focus-visible,
-        [data-state="busy"],
-        [data-state="done"]
-      )
-  )
-  .cv__glider {
-  transform: translateY(0%);
-}
-
-.cv__seg:has(
-    .cv__opt:nth-of-type(2):is(
-        :hover,
-        :focus-visible,
-        [data-state="busy"],
-        [data-state="done"]
-      )
-  )
-  .cv__glider {
-  transform: translateY(100%);
-}
-
-.cv__seg:has(
-    .cv__opt:nth-of-type(3):is(
-        :hover,
-        :focus-visible,
-        [data-state="busy"],
-        [data-state="done"]
-      )
-  )
-  .cv__glider {
-  transform: translateY(200%);
-}
-
-/* A cell. The code is pinned to the inline start so the tick can replace it
-   without moving the size on the other end of the row. */
-.cv__opt {
-  position: relative;
+/* One row: the code, the size, and two icon controls. Four things, no prose,
+   fixed metrics. The code is two glyphs in every interface language, so the
+   plate cannot change width when the site changes language - which is the
+   entire reason the codes exist. v3 also printed the endonym, the word READ
+   and the words SAVE THE FILE; that is what made the plate wide, tall and
+   untidy, and it is gone. */
+.cv__row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: 2.1rem minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--s-3);
-  min-height: var(--ctl-h-sm);
-  padding: 0.35rem var(--s-3);
-  color: var(--text-faint);
-  text-decoration: none;
-  transition: color 0.24s var(--e-out);
+  min-block-size: 2.25rem;
 }
 
-.cv__opt:hover,
-.cv__opt:focus-visible {
-  color: var(--gold-lit);
-}
-
-/* The language the site is currently in. Weight, not a fill: it says where you
-   are without competing with hover. */
-.cv__opt[data-current="true"] {
+.cv__code {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
+  letter-spacing: var(--ls-mono);
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
   color: var(--text);
 }
 
-.cv__opt-code {
-  min-width: 2.2rem;
+.cv__size {
   font-family: var(--font-mono);
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  transition: opacity 0.18s var(--e-out);
+  font-size: 0.6875rem;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--text-ghost);
 }
 
-.cv__opt-size {
-  justify-self: end;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.1em;
-  color: var(--text-faint);
-  opacity: 0.7;
-}
-
-/* The tick sits exactly where the code was and cross-fades with it. Opacity
-   only, so a finished download costs no layout at all. */
-.cv__opt-done {
-  position: absolute;
-  inset-inline-start: var(--s-3);
-  top: 50%;
+.cv__acts {
   display: inline-flex;
-  opacity: 0;
-  transform: translateY(-50%);
-  transition: opacity 0.18s var(--e-out);
+  align-items: center;
+  gap: 2px;
 }
 
-.cv__opt[data-state="busy"] .cv__opt-code {
-  opacity: 0.55;
+/* The two controls are the same object twice: same box, same radius, same
+   transition. Only the glyph and the destination differ. */
+.cv__eye,
+.cv__opt {
+  position: relative;
+  inline-size: 30px;
+  block-size: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    color 160ms var(--e-out),
+    background-color 160ms var(--e-out),
+    border-color 160ms var(--e-out);
+}
+
+.cv__eye:hover,
+.cv__opt:hover {
+  color: var(--text);
+  background: var(--surface-3);
+  border-color: var(--gold-hair-soft);
+}
+
+.cv__eye:focus-visible,
+.cv__opt:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  color: var(--text);
+}
+
+.cv__eye:active,
+.cv__opt:active {
+  background: var(--surface-4);
+}
+
+.cv__opt[data-state="busy"] {
+  color: var(--text-dim);
+  cursor: progress;
 }
 
 .cv__opt[data-state="done"] {
-  color: var(--gold);
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.35);
 }
 
-.cv__opt[data-state="done"] .cv__opt-code {
-  opacity: 0;
+.cv__opt[data-state="failed"] {
+  color: var(--accent-2);
 }
 
-.cv__opt[data-state="done"] .cv__opt-done {
-  opacity: 1;
-}
-
-.cv__opt[data-state="failed"] .cv__opt-code {
-  opacity: 0.45;
-}
-
-/* Progress, as a line that sweeps under the cell. transform and opacity only:
-   it cannot cost layout, and it repaints two pixels of its own row. */
+/* The sweep that runs along the control while the file is being fetched. */
 .cv__opt-line {
   position: absolute;
   inset-inline: 0;
-  bottom: 0;
-  height: 2px;
+  inset-block-end: 0;
+  block-size: 1px;
   background: var(--accent);
-  opacity: 0;
   transform: scaleX(0);
   transform-origin: 0 50%;
+  opacity: 0;
 }
 
 .cv__opt[data-state="busy"] .cv__opt-line {
   opacity: 1;
-  animation: cv-sweep 0.9s var(--e-out) infinite;
+  animation: cv-sweep 900ms var(--e-out) infinite;
 }
 
 @keyframes cv-sweep {
@@ -4510,6 +4487,28 @@ code {
     transform-origin: 100% 50%;
   }
 }
+
+/* Replaces the six deleted :has(.cv__opt:nth-of-type(n)) rules. Keyed on the
+   ROW, so both controls in a row drive the same cell, and the eye is included
+   for free. */
+.cv__seg:has(.cv__row:nth-of-type(1) :is(.cv__eye, .cv__opt):is(:hover, :focus-visible))
+  .cv__glider {
+  transform: translateY(0%);
+  opacity: 1;
+}
+
+.cv__seg:has(.cv__row:nth-of-type(2) :is(.cv__eye, .cv__opt):is(:hover, :focus-visible))
+  .cv__glider {
+  transform: translateY(100%);
+  opacity: 1;
+}
+
+.cv__seg:has(.cv__row:nth-of-type(3) :is(.cv__eye, .cv__opt):is(:hover, :focus-visible))
+  .cv__glider {
+  transform: translateY(200%);
+  opacity: 1;
+}
+
 
 /* Announced, not shown. */
 .cv__live {
@@ -4539,8 +4538,6 @@ code {
 @media (prefers-reduced-motion: reduce) {
   .cv,
   .cv__opt,
-  .cv__opt-code,
-  .cv__opt-done,
   .cv__glider {
     transition: none;
   }
@@ -4552,275 +4549,293 @@ code {
   }
 }
 
-/* ============================================================
-   CV reader - desktop
-   ============================================================ */
-
-/* The rail: one plate, three download links, and three eyes in front of them. */
-.cv__seg {
-  position: relative;
-  display: inline-grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: auto auto;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--gold-hair-soft);
-  border-radius: var(--radius-pill);
-}
-
-.cv__opt {
-  grid-row: 1;
-}
-
-.cv__eye {
-  grid-row: 2;
-  block-size: 24px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-faint);
-  cursor: pointer;
-  transition:
-    color 0.2s var(--e-out),
-    background-color 0.2s var(--e-out);
-}
-
-.cv__eye:hover,
-.cv__eye:focus-visible {
-  color: var(--text);
-  background: var(--accent-soft);
-}
-
-/* --- the drawn document ----------------------------------------------- */
-
+/* ==========================================================================
+   CV READER - THE SHEET
+   The page is laid out ONCE at --cvp-nat and then scaled by --cvp-fit, which
+   useReader measures. Layout never depends on the scale, so measuring can
+   never feed back into itself.
+   Colours are literal: --cv-sheet is the light page, --text is the dark ink.
+   Do not reach for --paper or --ink here; in this project they are inverted
+   (see the warning in tokens.css) and that is what shipped an invisible page.
+   ========================================================================== */
 .cvp {
-  --cvp-pad: clamp(var(--s-5), 5vw, var(--s-8));
-  inline-size: min(44rem, 100%);
+  --cvp-pad: clamp(var(--s-4), 3.2vw, var(--s-6));
+  position: relative;
+  inline-size: 100%;
+  margin-inline: auto;
   padding: var(--cvp-pad);
-  background: var(--paper);
-  border: 1px solid var(--gold-hair-soft);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--elev-1);
+  background: var(--cv-sheet);
   color: var(--text);
-  line-height: var(--lh-body);
+  border: 1px solid var(--cv-sheet-edge);
+  border-radius: var(--radius);
+  box-shadow:
+    0 1px 0 rgba(255, 253, 248, 0.9) inset,
+    0 26px 60px -30px rgba(37, 5, 8, 0.42);
   font-family: var(--font-sans);
+  line-height: var(--lh-body);
+  -webkit-font-smoothing: antialiased;
 }
 
 .cvp__head {
-  padding-block-end: var(--s-5);
-  border-block-end: 1px solid var(--gold-hair-soft);
-  margin-block-end: var(--s-5);
+  display: grid;
+  gap: 2px;
+  padding-block-end: var(--s-3);
+  border-block-end: 1px solid var(--cv-sheet-rule);
 }
 
 .cvp__name {
   margin: 0;
-  font: 600 var(--t-h2)/1.1 var(--font-sans);
-  letter-spacing: var(--ls-tight);
+  font-family: var(--font-serif);
+  font-size: 1.65rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+  color: var(--text);
 }
 
 .cvp__role {
-  margin-block-start: var(--s-1);
-  font: 500 var(--t-mono)/1.4 var(--font-mono);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
   letter-spacing: var(--ls-mono);
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: var(--accent-2);
 }
 
 .cvp__contact {
-  margin-block-start: var(--s-1);
-  font-size: var(--t-small);
-  color: var(--text-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--s-2);
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
 }
 
 .cvp__body {
   display: grid;
-  gap: var(--s-5);
+  gap: var(--s-4);
+  padding-block-start: var(--s-4);
 }
 
 .cvp__sec {
+  display: grid;
+  gap: var(--s-2);
+  break-inside: avoid;
+}
+
+.cvp__sec > h3 {
   margin: 0;
-  padding-block-end: var(--s-2);
-  border-block-end: 1px solid var(--line);
-  font: 600 0.76rem/1 var(--font-mono);
-  letter-spacing: var(--ls-mono);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--text-faint);
 }
 
 .cvp__lead {
   margin: 0;
-  font-size: var(--t-body);
-  color: var(--text-dim);
+  font-size: 0.9rem;
+  color: var(--text);
 }
 
 .cvp__terms {
   display: grid;
-  gap: var(--s-3);
+  gap: var(--s-1);
+  margin: 0;
 }
 
 .cvp__pair {
   display: grid;
-  grid-template-columns: minmax(6rem, 10rem) 1fr;
-  gap: var(--s-3);
+  grid-template-columns: minmax(6.5rem, 9rem) minmax(0, 1fr);
+  gap: var(--s-2);
   align-items: baseline;
 }
 
 .cvp__term {
-  font: 600 var(--t-mono)/1.4 var(--font-mono);
-  letter-spacing: var(--ls-mono);
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: var(--text-faint);
 }
 
 .cvp__def {
   margin: 0;
-  font-size: var(--t-body);
+  font-size: 0.84rem;
+  color: var(--text);
 }
 
 .cvp__entry {
   display: grid;
-  gap: var(--s-2);
+  gap: 2px;
 }
 
 .cvp__title {
   margin: 0;
-  font-size: var(--t-body);
+  font-size: 0.9rem;
   font-weight: 600;
+  color: var(--text);
 }
 
 .cvp__meta {
   margin: 0;
-  font: 500 var(--t-mono)/1.4 var(--font-mono);
-  letter-spacing: var(--ls-mono);
-  text-transform: uppercase;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
   color: var(--text-faint);
 }
 
 .cvp__list {
-  margin: 0;
-  padding-inline-start: 1.2em;
-  list-style: square;
   display: grid;
-  gap: var(--s-2);
+  gap: 2px;
+  margin: 0;
+  padding-inline-start: var(--s-3);
 }
 
 .cvp__item {
-  font-size: var(--t-body);
+  font-size: 0.84rem;
   color: var(--text-dim);
 }
 
 .cvp__foot {
-  margin-block-start: var(--s-6);
-  padding-block-start: var(--s-4);
-  border-block-start: 1px solid var(--line);
-  font: 500 var(--t-mono)/1.4 var(--font-mono);
-  letter-spacing: var(--ls-mono);
+  margin: 0;
+  padding-block-start: var(--s-3);
+  border-block-start: 1px solid var(--cv-sheet-rule);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-faint);
-  text-align: center;
+  color: var(--text-ghost);
 }
 
-/* --- the window ------------------------------------------------------- */
-
+/* ==========================================================================
+   CV READER - THE WINDOW
+   The panel has a DEFINITE height on purpose: fitScale cannot fit a page into
+   a box whose height is auto, and "auto" is how v2 ended up with a scrollbar.
+   ========================================================================== */
 .cvv {
   position: fixed;
   inset: 0;
   z-index: var(--z-overlay);
   display: grid;
   place-items: center;
+  padding: var(--s-4);
+  animation: cvv-fade 180ms var(--e-out) both;
 }
 
 .cvv__scrim {
   position: absolute;
   inset: 0;
-  border: 0;
-  padding: 0;
   background: var(--scrim);
   backdrop-filter: blur(var(--scrim-blur));
-  cursor: pointer;
-  animation: cvv-fade 0.24s var(--e-out) both;
 }
 
 .cvv__panel {
+  --cvp-nat: 44rem;
   position: relative;
-  inline-size: min(54rem, calc(100vw - var(--s-6) * 2));
-  max-block-size: min(92svh, 60rem);
+  z-index: 1;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  background: var(--surface-glass);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--gold-hair);
+  inline-size: min(66rem, calc(100vw - var(--s-6) * 2));
+  block-size: min(94svh, 66rem);
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--gold-hair-soft);
   border-radius: var(--win-r);
   box-shadow: var(--elev-panel);
-  overflow: hidden;
-  animation: cvv-rise 0.3s var(--e-out) both;
-}
-
-.cvv__panel[data-dragging="true"] {
-  user-select: none;
+  animation: cvv-rise 220ms var(--e-out) both;
 }
 
 .cvv__bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s-3);
+  gap: var(--s-2) var(--s-3);
   padding: var(--s-3) var(--s-4);
-  border-block-end: 1px solid var(--gold-hair-soft);
+  border-block-end: 1px solid var(--line);
+  background: var(--surface-2);
 }
 
 .cvv__crumb {
-  flex: 1 1 auto;
-  min-inline-size: 0;
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--s-2);
-  font: 500 0.72rem/1 var(--font-mono);
+  display: grid;
+  gap: 1px;
+  margin-inline-end: auto;
+}
+
+.cvv__title {
+  font-family: var(--font-mono);
+  font-size: var(--t-mono);
   letter-spacing: var(--ls-mono);
   text-transform: uppercase;
-  color: var(--text-faint);
-  white-space: nowrap;
-  overflow: hidden;
+  color: var(--text);
 }
 
 .cvv__pages {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+/* States in words, not just a number: "Whole page 62%" tells the reader that
+   nothing is cropped, which is the whole point of the fit. */
+.cvv__fitread {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  margin: 0;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   color: var(--text-dim);
+}
+
+.cvv__fitnum {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
 }
 
 .cvv__seg {
   display: inline-flex;
-  align-items: center;
   gap: 2px;
-  padding: 2px;
-  border: 1px solid var(--gold-hair-soft);
+  padding: 3px;
+  border: 1px solid var(--line);
   border-radius: var(--radius-pill);
+  background: var(--surface);
 }
 
 .cvv__lang {
-  min-inline-size: 2.6rem;
-  block-size: 26px;
+  min-inline-size: 3rem;
+  padding: 6px 12px;
   border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-dim);
-  font: 500 var(--t-mono)/1 var(--font-mono);
-  letter-spacing: var(--ls-mono);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
   cursor: pointer;
-  transition:
-    color 0.2s var(--e-out),
-    background-color 0.2s var(--e-out);
+  transition: background 160ms var(--e-out), color 160ms var(--e-out);
 }
 
-.cvv__lang:hover,
-.cvv__lang:focus-visible {
+.cvv__lang:hover {
+  background: var(--surface-3);
   color: var(--text);
-  background: var(--accent-soft);
 }
 
+/* The pill that v2 painted black-on-black. Light label, dark pill, stated
+   with the literal tokens so it cannot invert again. */
 .cvv__lang[aria-pressed="true"] {
-  color: var(--paper);
-  background: var(--text);
+  background: var(--invert);
+  color: var(--on-invert);
 }
 
 .cvv__tools {
@@ -4829,195 +4844,298 @@ code {
   gap: var(--s-2);
 }
 
-.cvv__tool {
-  inline-size: 28px;
-  block-size: 28px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--gold-hair-soft);
+.cvv__glassctl {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
   border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-dim);
-  cursor: pointer;
-  transition:
-    color 0.2s var(--e-out),
-    border-color 0.2s var(--e-out),
-    background-color 0.2s var(--e-out);
+  background: var(--surface);
 }
 
-.cvv__tool:hover,
-.cvv__tool:focus-visible,
-.cvv__tool[aria-pressed="true"] {
-  color: var(--accent);
-  border-color: var(--accent);
+.cvv__glassctl.is-on {
+  border-color: rgba(var(--accent-rgb), 0.45);
   background: var(--accent-soft);
+}
+
+.cvv__tool {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-1);
+  min-block-size: var(--ctl-h-sm, 36px);
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: none;
+  transition: background 160ms var(--e-out);
+}
+
+.cvv__tool:hover {
+  background: var(--surface-3);
+}
+
+.cvv__tool[aria-pressed="true"] {
+  color: var(--accent-2);
 }
 
 .cvv__zoom {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font: 500 var(--t-mono)/1 var(--font-mono);
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
+  gap: 2px;
+  padding-inline: 2px;
+  border-inline-start: 1px solid var(--line);
 }
 
 .cvv__step {
-  inline-size: 20px;
-  block-size: 20px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--gold-hair-soft);
+  inline-size: 28px;
+  block-size: 28px;
+  border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--text-dim);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  line-height: 1;
   cursor: pointer;
 }
 
-.cvv__step:hover,
-.cvv__step:focus-visible {
-  color: var(--text);
-  border-color: var(--text);
+.cvv__step:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.cvv__step:disabled {
+  opacity: 0.34;
+  cursor: default;
+}
+
+.cvv__zoomnum {
+  min-inline-size: 2.9rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
 }
 
 .cvv__close {
-  inline-size: 30px;
-  block-size: 30px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--gold-hair-soft);
+  inline-size: var(--ctl-h-md, 44px);
+  block-size: var(--ctl-h-md, 44px);
+  border: 1px solid var(--line);
   border-radius: var(--radius-pill);
-  background: transparent;
-  color: var(--text-dim);
+  background: var(--surface);
+  color: var(--text);
   cursor: pointer;
-  transition:
-    color 0.22s var(--e-out),
-    border-color 0.22s var(--e-out),
-    transform 0.22s var(--e-out);
+  transition: background 160ms var(--e-out), color 160ms var(--e-out);
 }
 
-.cvv__close:hover,
-.cvv__close:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent);
-  transform: rotate(90deg);
+.cvv__close:hover {
+  background: var(--invert);
+  color: var(--on-invert);
 }
 
+/* ==========================================================================
+   CV READER - THE STAGE
+   display:flex + a single child with margin:auto is the one centring recipe
+   that centres when the child is smaller than the box AND does not clip the
+   start of the child when it is bigger. place-items:center clips; that is why
+   it is not used here.
+   ========================================================================== */
 .cvv__stage {
   position: relative;
   min-block-size: 0;
+  display: flex;
   overflow: auto;
   overscroll-behavior: contain;
   padding: var(--s-5);
-  display: grid;
-  place-items: start center;
+  background:
+    radial-gradient(
+      120% 100% at 50% 0%,
+      var(--surface-3) 0%,
+      var(--surface-4) 100%
+    );
 }
 
-/* --- the lens --------------------------------------------------------- */
+/* Sized by useReader to the page's exact on-screen size, so the sheet can be
+   centred without the stage ever needing to scroll. */
+.cvv__fit {
+  position: relative;
+  flex: 0 0 auto;
+  margin: auto;
+  inline-size: var(--cvp-w, var(--cvp-nat, 44rem));
+  block-size: var(--cvp-h, auto);
+}
 
-.cvv__lens {
+/* ==========================================================================
+   CV READER - THE GLASS
+   A real instrument: a clipping circle, a live clone inside it, a rim with a
+   gold hairline, a sheen across the top-left, a knurled grip and a zoom badge
+   on the rim. It replaces .cvv__ring / .cvv__handle, which drew an outline and
+   nothing else.
+   ========================================================================== */
+.cvv__glass {
   position: absolute;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  inline-size: var(--lp-size, 260px);
-  block-size: var(--lp-size, 260px);
-  translate: var(--lp-x, 0px) var(--lp-y, 0px);
+  top: 0;
+  left: 0;
+  inline-size: var(--lp-size, 300px);
+  block-size: var(--lp-size, 300px);
+  transform: translate3d(var(--lp-x, 0px), var(--lp-y, 0px), 0);
   border-radius: 50%;
   overflow: hidden;
+  isolation: isolate;
+  contain: paint;
+  background: var(--cv-sheet);
   box-shadow:
-    0 0 0 1px rgba(var(--gold-rgb), 0.5),
-    0 18px 48px rgba(37, 5, 8, 0.35);
-  background: var(--paper);
+    0 0 0 1px rgba(var(--gold-rgb), 0.55),
+    0 0 0 6px rgba(23, 20, 15, 0.06),
+    0 18px 44px rgba(37, 5, 8, 0.35);
   cursor: grab;
   touch-action: none;
-  contain: paint;
-  will-change: translate;
   z-index: 2;
-  transition: opacity 0.18s var(--e-out);
 }
 
-.cvv__lens[data-over="false"] {
-  opacity: 0.2;
-}
-
-.cvv__panel[data-dragging="true"] .cvv__lens {
+.cvv__glass[data-dragging="true"] {
   cursor: grabbing;
 }
 
+/* Off the sheet, the instrument steps back instead of hovering over the desk
+   pretending to magnify it. */
+.cvv__glass[data-over="false"] {
+  opacity: 0.5;
+}
+
+/* The live clone. Laid out at the sheet's LAYOUT width (--lp-w) so every line
+   breaks exactly where it breaks on the page, then translated and scaled: the
+   translate is in unscaled pixels, which is what mirrorShift computes. */
 .cvv__mirror {
   position: absolute;
-  inset-block-start: 0;
-  inset-inline-start: 0;
-  inline-size: var(--lp-w, 100%);
-  transform-origin: 0 0;
+  top: 0;
+  left: 0;
+  inline-size: var(--lp-w, 44rem);
   transform: translate3d(var(--lp-tx, 0px), var(--lp-ty, 0px), 0)
-    scale(var(--lp-z, 2.5));
-  pointer-events: none;
+    scale(var(--lp-z, 1.6));
+  transform-origin: 0 0;
   will-change: transform;
+  pointer-events: none;
 }
 
-.cvv__ring {
+/* The clone is a page, not a card: no border, no radius, no shadow inside the
+   glass, and never the fit transform - the glass applies its own zoom. */
+.cvv__mirror > .cvp {
+  position: static;
+  inline-size: var(--lp-w, 44rem);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.cvv__sheen {
   position: absolute;
   inset: 0;
-  border: 1px solid var(--gold-hair);
   border-radius: 50%;
+  background: linear-gradient(
+    148deg,
+    rgba(255, 253, 248, 0.55) 0%,
+    rgba(255, 253, 248, 0.12) 26%,
+    rgba(255, 253, 248, 0) 48%
+  );
   pointer-events: none;
 }
 
-.cvv__handle {
+.cvv__rim {
   position: absolute;
-  inset-block-end: 10px;
-  inset-inline-end: 10px;
-  inline-size: 26px;
-  block-size: 26px;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 1px rgba(23, 20, 15, 0.24),
+    inset 0 0 0 7px rgba(var(--gold-rgb), 0.5),
+    inset 0 0 0 8px rgba(23, 20, 15, 0.3),
+    inset 0 16px 28px -16px rgba(255, 253, 248, 0.75),
+    inset 0 -18px 32px -20px rgba(37, 5, 8, 0.4);
+  pointer-events: none;
+}
+
+.cvv__badge {
+  position: absolute;
+  bottom: 9px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--invert-glass);
+  color: var(--on-invert);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.cvv__grip {
+  position: absolute;
+  right: 8%;
+  bottom: 8%;
   display: grid;
   place-items: center;
-  border: 1px solid var(--gold-hair-soft);
+  inline-size: 22px;
+  block-size: 22px;
   border-radius: 50%;
   background: var(--surface-glass);
   color: var(--text-faint);
+  box-shadow: 0 0 0 1px rgba(23, 20, 15, 0.1);
   pointer-events: none;
 }
 
-/* --- the foot --------------------------------------------------------- */
-
 .cvv__foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--s-4);
+  gap: var(--s-2) var(--s-3);
   padding: var(--s-3) var(--s-4);
-  border-block-start: 1px solid var(--gold-hair-soft);
+  border-block-start: 1px solid var(--line);
+  background: var(--surface-2);
 }
 
 .cvv__hint {
-  flex: 1 1 auto;
-  min-inline-size: 0;
-  font: 500 var(--t-mono)/1.4 var(--font-mono);
-  letter-spacing: var(--ls-mono);
+  margin: 0;
+  margin-inline-end: auto;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-faint);
 }
 
-.cvv__link {
+.cvv__acts {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-2);
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: var(--text-dim);
-  font: 500 var(--t-mono)/1 var(--font-mono);
-  letter-spacing: var(--ls-mono);
-  text-transform: uppercase;
-  text-decoration: none;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color 0.2s var(--e-out);
+  gap: var(--s-3);
 }
 
-.cvv__link:hover,
-.cvv__link:focus-visible {
-  color: var(--accent);
+.cvv__link {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  text-decoration: none;
+  border-block-end: 1px solid var(--line-mid);
+}
+
+.cvv__link:hover {
+  color: var(--accent-2);
+  border-color: currentColor;
 }
 
 @keyframes cvv-fade {
@@ -5040,17 +5158,26 @@ code {
   }
 }
 
+/* The glass is the one place where a soft-light gradient is worth a paint. On
+   a low-quality device it is the first thing to go; the instrument still reads
+   as an instrument through the rim alone. */
+[data-quality="low"] .cvv__sheen {
+  display: none;
+}
+
+[data-quality="low"] .cvv__scrim {
+  backdrop-filter: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .cvv__scrim,
+  .cvv,
   .cvv__panel {
     animation: none;
   }
 
-  .cv__eye,
   .cvv__lang,
   .cvv__tool,
-  .cvv__close,
-  .cvv__link {
+  .cvv__close {
     transition: none;
   }
 }

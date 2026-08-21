@@ -95,8 +95,8 @@ export const Download = ({ size = 16, className }: IconProps) => (
 export function Eye({ size = 16, className }: IconProps) {
   return (
     <svg {...base(size)} className={className}>
-      <path d="M0.9 8C2.8 5 5.2 3.5 8 3.5S13.2 5 15.1 8c-1.9 3-4.3 4.5-7.1 4.5S2.8 11 0.9 8Z" />
-      <circle cx="8" cy="8" r="2.15" />
+      <path d="M1.3 8C3.1 5.2 5.4 3.8 8 3.8s4.9 1.4 6.7 4.2c-1.8 2.8-4.1 4.2-6.7 4.2S3.1 10.8 1.3 8Z" />
+      <circle cx="8" cy="8" r="2.05" />
     </svg>
   );
 }
@@ -113,19 +113,3 @@ export function Lens({ size = 16, className }: IconProps) {
     </svg>
   );
 }
-
-/* Pick it up and put it somewhere else. Shown on the glass while it is being
-   dragged, and on the handle a keyboard user can focus. */
-export function Move({ size = 16, className }: IconProps) {
-  return (
-    <svg {...base(size)} className={className}>
-      <path d="M8 2.3v11.4" />
-      <path d="M2.3 8h11.4" />
-      <path d="M6.5 4 8 2.3 9.5 4" />
-      <path d="M6.5 12 8 13.7 9.5 12" />
-      <path d="M4 6.5 2.3 8 4 9.5" />
-      <path d="M12 6.5 13.7 8 12 9.5" />
-    </svg>
-  );
-}
-

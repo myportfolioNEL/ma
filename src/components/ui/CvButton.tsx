@@ -1,237 +1,165 @@
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
-import { CV_ORDER, cv } from "../../data/cv";
-import { useLocale } from "../../context/LocaleContext";
-import { Check, Download, Eye } from "./Icons";
-import { downloadCv, nativeSaveCv, warmCv } from "../../lib/cv";
-import type { Locale } from "../../data/translations";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import CvView from "./CvView";
+import { Check, Download, Eye } from "./Icons";
+import { cv, CV_ORDER, type CvLocale } from "../../data/cv";
+import { downloadCv, warmCv } from "../../lib/cv";
+import { useLocale } from "../../context/LocaleContext";
+import { setScrollLocked } from "../../lib/scroll";
 
-/**
- * CvButton - one plate that names the file, a rail with three cells that choose
- * its language, and an eye per file that reads it without downloading it.
- *
- * WHY THE CODES ARE THE WHOLE LABEL. Three cells, three glyph pairs, identical
- * in every locale. A full language name would be a different width in each of
- * the three alphabets, so the control would change shape when the site changes
- * language - and the codes are already what the file is called.
- *
- * WHY THERE IS NO EXPANDED STATE. The previous version hid the languages behind
- * a click and needed two document-level listeners to close itself again. Three
- * cells that are always visible need neither: one click, one file.
- *
- * WHY EVERY CELL IS A REAL ANCHOR. href, download, hrefLang and type are all
- * set, so a modified click behaves exactly as the browser promises - open in a
- * new tab, save as, drag to the desktop - and a visitor with no JavaScript
- * still downloads the file. The click handler is an enhancement over a link
- * that already works, not a replacement for one.
- *
- * WHY THE GLIDER IS CSS AND NOT STATE. The lit segment answers two questions at
- * once: which language the site is in, and which file you are about to ask for.
- * The first is `data-rest`, written once per locale change. The second is
- * `:has(.cv__opt:nth-of-type(n):hover)` in the stylesheet. Neither costs a
- * re-render, and the only property that animates is translateY on one
- * composited layer.
- *
- * WHY THREE EYES ON THE RAIL. One eye per row, in front of its own file, opening
- * that file. The anchor elements are :nth-of-type among anchors and the button
- * elements are :nth-of-type among buttons, so the glider rules keep working
- * untouched.
- */
+type State = "idle" | "busy" | "done" | "failed";
 
-type CellState = "idle" | "busy" | "done" | "failed";
-
-/** How long a finished cell keeps its tick before returning to its code. */
+/** How long a finished row keeps its tick before returning to rest. */
 const SETTLE = 2200;
 
+/**
+ * The CV plate: three files, three rows.
+ *
+ * WHY THE CODE AND NOT THE NAME. v3 printed the endonym next to the code -
+ * AR / العربية, EN / English, FR / Français - plus the words READ and SAVE THE
+ * FILE. Five things per row, three of them redundant, and a plate whose width
+ * changed with the interface language. The two-letter code is what the file is
+ * called, it is the same two glyphs in every locale, and the icons carry their
+ * names in title and aria-label where a screen reader wants them and a layout
+ * does not.
+ */
 export default function CvButton() {
   const { t } = useLocale();
-  const [states, setStates] = useState<Record<Locale, CellState>>({
+  const ui = t.ui;
+
+  const [states, setStates] = useState<Record<CvLocale, State>>({
+    ar: "idle",
     en: "idle",
     fr: "idle",
-    ar: "idle",
   });
-  const [note, setNote] = useState("");
-  /* Which document the reader is showing, or null when the window is closed. */
-  const [viewing, setViewing] = useState<Locale | null>(null);
-  const timers = useRef<Partial<Record<Locale, number>>>({});
-  const warmed = useRef<Set<Locale>>(new Set());
-  /* One eye per row, so focus can go back to the exact eye that was pressed. */
-  const eyes = useRef<Partial<Record<Locale, HTMLButtonElement | null>>>({});
-  const alive = useRef(true);
+  const [rest, setRest] = useState<CvLocale | null>(null);
+  const [reading, setReading] = useState<CvLocale | null>(null);
+  const [live, setLive] = useState("");
+  const timers = useRef<number[]>([]);
 
+  useEffect(
+    () => () => {
+      for (const id of timers.current) window.clearTimeout(id);
+    },
+    [],
+  );
+
+  /* The reader is a modal: the page behind it must not scroll under it. */
   useEffect(() => {
-    alive.current = true;
-    const pending = timers.current;
-    return () => {
-      alive.current = false;
-      for (const id of Object.values(pending)) {
-        if (typeof id === "number") window.clearTimeout(id);
-      }
-    };
-  }, []);
+    setScrollLocked(reading !== null);
+    return () => setScrollLocked(false);
+  }, [reading]);
 
-  const settle = useCallback((locale: Locale) => {
-    const previous = timers.current[locale];
-    if (typeof previous === "number") window.clearTimeout(previous);
-    timers.current[locale] = window.setTimeout(() => {
-      if (!alive.current) return;
-      setStates((current) => ({ ...current, [locale]: "idle" }));
-    }, SETTLE);
-  }, []);
+  const aria = useCallback(
+    (locale: CvLocale) =>
+      locale === "ar" ? ui.cvAriaAr : locale === "en" ? ui.cvAriaEn : ui.cvAriaFr,
+    [ui],
+  );
 
-  /* Hover and focus start the race before the click does, so by the time the
-     visitor decides, the file is usually already in memory. */
-  const warm = useCallback((locale: Locale) => {
-    if (warmed.current.has(locale)) return;
-    warmed.current.add(locale);
-    void warmCv(cv[locale]);
-  }, []);
-
-  const start = useCallback(
-    async (locale: Locale) => {
-      const file = cv[locale];
+  const save = useCallback(
+    async (locale: CvLocale) => {
+      if (states[locale] === "busy") return;
       setStates((current) => ({ ...current, [locale]: "busy" }));
-      setNote(t.ui.cvStatusBusy);
+      setLive(ui.cvStatusBusy);
       try {
-        const delivery = await downloadCv(file);
-        if (!alive.current) return;
+        const { suspect } = await downloadCv(locale);
         setStates((current) => ({ ...current, [locale]: "done" }));
-        setNote(delivery.suspect ? t.ui.cvStatusSuspect : t.ui.cvStatusDone);
+        setLive(suspect ? ui.cvStatusSuspect : ui.cvStatusDone);
       } catch {
-        if (!alive.current) return;
         setStates((current) => ({ ...current, [locale]: "failed" }));
-        setNote(t.ui.cvStatusFailed);
-        /* Hand the visitor back to the browser rather than to an error: the
-           first source is same-origin, so a plain anchor still downloads it. */
-        nativeSaveCv(file);
+        setLive(ui.cvStatusFailed);
       }
-      settle(locale);
+      timers.current.push(
+        window.setTimeout(() => {
+          setStates((current) => ({ ...current, [locale]: "idle" }));
+        }, SETTLE),
+      );
     },
-    [settle, t],
+    [states, ui],
   );
 
-  const pick = useCallback(
-    (event: ReactMouseEvent<HTMLAnchorElement>, locale: Locale) => {
-      /* A modified click belongs to the browser. Only a plain left click is
-         ours to intercept. */
-      if (
-        event.button !== 0 ||
-        event.metaKey ||
-        event.ctrlKey ||
-        event.shiftKey ||
-        event.altKey
-      ) {
-        return;
-      }
-      event.preventDefault();
-      void start(locale);
-    },
-    [start],
-  );
-
-  const openView = useCallback((locale: Locale) => {
-    setViewing(locale);
+  /* Pointing at a row lights the rail and warms the file. Both are idempotent. */
+  const point = useCallback((locale: CvLocale) => {
+    setRest(locale);
+    void warmCv(locale);
   }, []);
-
-  /* Returning focus to the eye that opened the window is what makes the reader
-     usable by keyboard: you come back exactly where you left. */
-  const closeView = useCallback(() => {
-    const locale = viewing;
-    setViewing(null);
-    if (locale) {
-      window.requestAnimationFrame(() => eyes.current[locale]?.focus());
-    }
-  }, [viewing]);
-
-  const ariaFor = (locale: Locale): string => {
-    if (locale === "ar") return t.ui.cvAriaAr;
-    if (locale === "fr") return t.ui.cvAriaFr;
-    return t.ui.cvAriaEn;
-  };
-
-  /* Where the glider sits when nobody is pointing at anything: on the language
-     the site is currently in. Falls back to the first cell if the locale is
-     somehow not in CV_ORDER, so the rail is never blank. */
-  const restIndex = Math.max(0, CV_ORDER.indexOf(t.locale));
 
   return (
-    <div className="cv">
-      <span className="cv__head">
-        <span className="cv__mark" aria-hidden="true">
-          <Download size={16} />
-        </span>
+    <div className="cv" data-rest={rest ?? undefined}>
+      <div className="cv__head">
+        <span className="cv__mark" aria-hidden="true" />
         <span className="cv__copy">
-          <span className="cv__label">{t.ui.cvDownload}</span>
-          <span className="cv__meta">{t.ui.cvHint}</span>
+          <span className="cv__label">{ui.cvDownload}</span>
+          <span className="cv__meta">{ui.cvHint}</span>
         </span>
-      </span>
+      </div>
 
-      <span
-        className="cv__seg"
-        role="group"
-        aria-label={t.ui.cvAriaLabel}
-        data-rest={restIndex}
-      >
-        {CV_ORDER.map((locale) => {
-          const file = cv[locale];
-          const size = `${Math.round(file.bytes / 1024)} ${t.ui.cvSizeUnit}`;
-          const state = states[locale];
-          return (
-            <Fragment key={locale}>
-              {/* unchanged: the download link, still the primary action */}
-              <a
-                key={locale}
-                className="cv__opt"
-                href={file.sources[0].url}
-                download={file.fileName}
-                hrefLang={locale}
-                type="application/pdf"
-                data-state={state}
-                data-current={locale === t.locale ? "true" : undefined}
-                aria-label={`${ariaFor(locale)} · ${size}`}
-                title={`${file.code} — ${size}`}
-                onPointerEnter={() => warm(locale)}
-                onFocus={() => warm(locale)}
-                onClick={(event) => pick(event, locale)}
-              >
-                <span className="cv__opt-code ltr">{file.code}</span>
-                <span className="cv__opt-size ltr" aria-hidden="true">
-                  {size}
-                </span>
-                <span className="cv__opt-done" aria-hidden="true">
-                  <Check size={13} />
-                </span>
-                <span className="cv__opt-line" aria-hidden="true" />
-              </a>
-
-              {/* new: read this file without downloading it */}
-              <button
-                aria-label={`${t.ui.cvViewOpen} — ${file.code}`}
-                className="cv__eye"
-                onClick={() => openView(locale)}
-                ref={(node) => {
-                  eyes.current[locale] = node;
-                }}
-                title={`${t.ui.cvViewOpen} — ${file.code}`}
-                type="button"
-              >
-                <Eye size={15} />
-              </button>
-            </Fragment>
-          );
-        })}
-
+      <div className="cv__seg" role="group" aria-label={ui.cvAriaLabel}>
         <span className="cv__rail" aria-hidden="true">
           <span className="cv__glider" />
         </span>
-      </span>
+
+        {CV_ORDER.map((locale) => {
+          const file = cv[locale];
+          const state = states[locale];
+          return (
+            <div className="cv__row" key={locale} data-state={state}>
+              <span className="cv__code">{file.code}</span>
+              <span className="cv__size">
+                {Math.round(file.bytes / 1024)} {ui.cvSizeUnit}
+              </span>
+
+              <span className="cv__acts">
+                <button
+                  type="button"
+                  className="cv__eye"
+                  title={`${ui.cvViewOpen} · ${file.code}`}
+                  aria-label={`${ui.cvViewOpen} · ${file.code}`}
+                  onPointerEnter={() => point(locale)}
+                  onFocus={() => setRest(locale)}
+                  onPointerLeave={() => setRest(null)}
+                  onBlur={() => setRest(null)}
+                  onClick={() => setReading(locale)}
+                >
+                  <Eye size={16} />
+                </button>
+
+                <a
+                  className="cv__opt"
+                  href={file.fileName}
+                  download
+                  hrefLang={locale}
+                  type="application/pdf"
+                  data-state={state}
+                  title={aria(locale)}
+                  aria-label={aria(locale)}
+                  onPointerEnter={() => point(locale)}
+                  onFocus={() => setRest(locale)}
+                  onPointerLeave={() => setRest(null)}
+                  onBlur={() => setRest(null)}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    void save(locale);
+                  }}
+                >
+                  {state === "done" ? <Check size={16} /> : <Download size={16} />}
+                  <span className="cv__opt-line" aria-hidden="true" />
+                </a>
+              </span>
+            </div>
+          );
+        })}
+      </div>
 
       <p className="cv__live" role="status" aria-live="polite">
-        {note}
+        {live}
       </p>
 
-      {viewing ? <CvView doc={viewing} onDoc={setViewing} onClose={closeView} /> : null}
+      {reading !== null &&
+        createPortal(
+          <CvView locale={reading} onClose={() => setReading(null)} />,
+          document.body,
+        )}
     </div>
   );
 }

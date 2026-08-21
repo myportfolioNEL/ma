@@ -113,6 +113,16 @@ ol {
   color: var(--accent-ink);
 }
 
+/* The same paint, inside the magnifier. The loupe shows a clone of the sheet,
+   and a clone does not carry the browser's selection - see src/lib/echo.ts -
+   so the selected ranges are re-registered on the clone as a named highlight.
+   Identical colours, so a selection does not change appearance when it passes
+   under the glass. */
+::highlight(cv-echo) {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;

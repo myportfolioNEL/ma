@@ -81,23 +81,11 @@ export type TranslationBundle = {
     /* The CV reader: an eye beside the plate, a window, a magnifier. */
     cvViewOpen: string;
     cvViewTitle: string;
-    cvViewHint: string;
-    cvViewRead: string;
-    cvViewPages: string;
     cvViewLens: string;
-    cvViewLensHint: string;
-    cvViewSourceNote: string;
-    cvViewUnverified: string;
-    cvViewLangLabel: string;
-    cvViewLoading: string;
-    cvViewFailed: string;
-    cvViewRetry: string;
-    cvViewNewTab: string;
-    cvViewSave: string;
-    cvViewLoupe: string;
-    cvViewLoupeHint: string;
-    cvViewZoomIn: string;
-    cvViewZoomOut: string;
+    cvViewClose: string;
+    /** Stated in the toolbar: the entire page is on screen, at N% of print. */
+    /** Tooltip on the zoom readout: the number is against the printed page. */
+    /** Each language's own name for itself. Never translated. */
     factTimeline: string;
     factRole: string;
     factContext: string;
@@ -348,23 +336,8 @@ export const translations: Record<Locale, TranslationBundle> = {
       cvSizeUnit: "KB",
       cvViewOpen: "Read CV",
       cvViewTitle: "Curriculum Vitae",
-      cvViewHint: "Drawn from structured data. PDF available below.",
-      cvViewRead: "Read",
-      cvViewPages: "1 page · structured",
       cvViewLens: "Magnifier",
-      cvViewLensHint: "Drag to magnify details",
-      cvViewSourceNote: "DOM render · source: src/data/cvDoc.ts",
-      cvViewUnverified: "This copy could not be checked against its expected size",
-      cvViewLangLabel: "Language of the CV",
-      cvViewLoading: "Opening the CV",
-      cvViewFailed: "This browser will not show the PDF inside the page. It still opens in a tab.",
-      cvViewRetry: "Try again",
-      cvViewNewTab: "Open in a new tab",
-      cvViewSave: "Save the file",
-      cvViewLoupe: "Magnifier — drag it over the part you want enlarged",
-      cvViewLoupeHint: "Drag to magnify. Wheel, or + and −, to change the zoom.",
-      cvViewZoomIn: "Increase the magnification",
-      cvViewZoomOut: "Reduce the magnification",
+      cvViewClose: "Close",
       factTimeline: "Timeline",
       factRole: "Role",
       factContext: "Context",
@@ -614,23 +587,8 @@ export const translations: Record<Locale, TranslationBundle> = {
       cvSizeUnit: "Ko",
       cvViewOpen: "Lire le CV",
       cvViewTitle: "Curriculum Vitæ",
-      cvViewHint: "Rendu depuis des données structurées. PDF disponible ci-dessous.",
-      cvViewRead: "Lire",
-      cvViewPages: "1 page · structurée",
       cvViewLens: "Loupe",
-      cvViewLensHint: "Glisser pour agrandir",
-      cvViewSourceNote: "Rendu DOM · source: src/data/cvDoc.ts",
-      cvViewUnverified: "Cette copie n'a pas pu être vérifiée face à sa taille prévue",
-      cvViewLangLabel: "Langue du CV",
-      cvViewLoading: "Ouverture du CV",
-      cvViewFailed: "Ce navigateur n'affiche pas le PDF dans la page. Il s'ouvre encore dans un onglet.",
-      cvViewRetry: "Réessayer",
-      cvViewNewTab: "Ouvrir dans un nouvel onglet",
-      cvViewSave: "Enregistrer le fichier",
-      cvViewLoupe: "Loupe — faites-la glisser sur la partie à agrandir",
-      cvViewLoupeHint: "Glissez pour agrandir. Molette, ou + et −, pour régler le zoom.",
-      cvViewZoomIn: "Augmenter l'agrandissement",
-      cvViewZoomOut: "Réduire l'agrandissement",
+      cvViewClose: "Fermer",
       factTimeline: "Durée",
       factRole: "Rôle",
       factContext: "Contexte",
@@ -879,23 +837,8 @@ export const translations: Record<Locale, TranslationBundle> = {
       cvSizeUnit: "ك.ب",
       cvViewOpen: "قراءة السيرة الذاتية",
       cvViewTitle: "السيرة الذاتية",
-      cvViewHint: "مبنيّة من بيانات هيكلية. ملف PDF متاح بالأسفل.",
-      cvViewRead: "قراءة",
-      cvViewPages: "صفحة واحدة · مبنيّة",
       cvViewLens: "المكبّرة",
-      cvViewLensHint: "اسحب لتكبير التفاصيل",
-      cvViewSourceNote: "رسم هيكلي · المصدر: src/data/cvDoc.ts",
-      cvViewUnverified: "لم يتسنَّ التحقّق من حجم هذه النّسخة مقابل الحجم المتوقّع",
-      cvViewLangLabel: "لغة السّيرة الذّاتية",
-      cvViewLoading: "جارٍ فتح السّيرة الذّاتية",
-      cvViewFailed: "هذا المتصفّح لا يعرض ملفّ PDF داخل الصّفحة، وما زال يُفتح في تبويب",
-      cvViewRetry: "إعادة المحاولة",
-      cvViewNewTab: "فتح في تبويب جديد",
-      cvViewSave: "حفظ الملفّ",
-      cvViewLoupe: "مكبّرة — اسحبها فوق الجزء الّذي تريد تكبيره",
-      cvViewLoupeHint: "اسحب للتكبير. العجلة أو + و − لتغيير المقدار.",
-      cvViewZoomIn: "زيادة التكبير",
-      cvViewZoomOut: "تقليل التكبير",
+      cvViewClose: "إغلاق",
       factTimeline: "المدة",
       factRole: "الدور",
       factContext: "السياق",

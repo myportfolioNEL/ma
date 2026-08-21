@@ -36,6 +36,8 @@ import type { Locale } from "./translations";
 
 export type CvSourceKind = "local" | "mirror";
 
+export type CvLocale = Locale;
+
 export type CvSource = {
   kind: CvSourceKind;
   url: string;

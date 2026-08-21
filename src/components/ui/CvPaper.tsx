@@ -27,10 +27,13 @@ import { cx } from "../../lib/utils";
 type Props = {
   /** Which of the three documents to draw. */
   locale: Locale;
+  /** Optional document object; defaults to CV_DOC[locale]. */
+  doc?: typeof CV_DOC[Locale];
   /** The line at the foot of the page, from the interface language. */
-  foot: string;
+  foot?: string;
   /** The lens clones this element, so the window has to be able to reach it. */
   paperRef?: Ref<HTMLElement>;
+  ref?: Ref<HTMLElement>;
 };
 
 /* A line with no Arabic letters is set left-to-right even inside the Arabic
@@ -72,8 +75,10 @@ function Block({ block }: { block: CvBlock }) {
   }
 }
 
-export function CvPaper({ locale, foot, paperRef }: Props) {
-  const doc = CV_DOC[locale];
+export function CvPaper({ locale, doc: propDoc, foot: propFoot, paperRef, ref }: Props) {
+  const doc = propDoc ?? CV_DOC[locale];
+  const foot = propFoot ?? "";
+  const targetRef = ref ?? paperRef;
   return (
     <article
       className="cvp"
@@ -82,7 +87,7 @@ export function CvPaper({ locale, foot, paperRef }: Props) {
          left-to-right inside an Arabic one. */
       dir={locale === "ar" ? "rtl" : "ltr"}
       lang={locale}
-      ref={paperRef}
+      ref={targetRef}
     >
       <header className="cvp__head">
         <h2 className="cvp__name">{doc.name}</h2>

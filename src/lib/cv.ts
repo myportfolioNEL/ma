@@ -1,4 +1,4 @@
-import { cvVersion, type CvFile, type CvSource, type CvSourceKind } from "../data/cv";
+import { cv, cvVersion, type CvFile, type CvLocale, type CvSource, type CvSourceKind } from "../data/cv";
 
 /**
  * lib/cv.ts - get one PDF from whichever copy of it answers first, keep it, and
@@ -42,8 +42,6 @@ export type CvDelivery = {
   /** True when the copy that answered is not the size data/cv.ts expects. */
   suspect: boolean;
 };
-
-type CvLocale = CvFile["locale"];
 
 type Resolved = {
   blob: Blob;
@@ -271,12 +269,17 @@ function save(blob: Blob, fileName: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), REVOKE_AFTER);
 }
 
+function toFile(target: CvFile | CvLocale): CvFile {
+  return typeof target === "string" ? cv[target] : target;
+}
+
 /**
  * Ask the browser to download the first source itself, with no fetch involved.
  * Used when the engine fails: the sources are same-origin, so the download
  * attribute is honoured and the visitor still gets the file.
  */
-export function nativeSaveCv(file: CvFile): void {
+export function nativeSaveCv(target: CvFile | CvLocale): void {
+  const file = toFile(target);
   const anchor = document.createElement("a");
   anchor.href = file.sources[0].url;
   anchor.download = file.fileName;
@@ -292,7 +295,8 @@ export function nativeSaveCv(file: CvFile): void {
  * design: a warm-up that did not work costs the visitor nothing, because the
  * click path runs the whole race again.
  */
-export async function warmCv(file: CvFile): Promise<void> {
+export async function warmCv(target: CvFile | CvLocale): Promise<void> {
+  const file = toFile(target);
   try {
     await resolveFile(file);
   } catch {
@@ -301,7 +305,8 @@ export async function warmCv(file: CvFile): Promise<void> {
 }
 
 /** Deliver the file. Throws only when every copy of it failed. */
-export async function downloadCv(file: CvFile): Promise<CvDelivery> {
+export async function downloadCv(target: CvFile | CvLocale): Promise<CvDelivery> {
+  const file = toFile(target);
   const resolved = await resolveFile(file);
   save(resolved.blob, file.fileName);
   return {
