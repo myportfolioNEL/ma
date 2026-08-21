@@ -89,3 +89,26 @@ export const Download = ({ size = 16, className }: IconProps) => (
     <path d="M2.9 12.5h10.2" />
   </svg>
 );
+
+/* The eye is a reading glyph and it sits beside Download inside the same plate,
+   so the two have to weigh the same on the page: one closed curve, one circle,
+   nothing filled. An emoji would be a fourth typeface arriving in the middle of
+   a control, at a size nobody chose, and it would not inherit `color`. */
+export const Eye = ({ size = 16, className }: IconProps) => (
+  <svg {...base(size)} className={className}>
+    <path d="M1.6 8S3.9 3.9 8 3.9 14.4 8 14.4 8 12.1 12.1 8 12.1 1.6 8 1.6 8Z" />
+    <circle cx="8" cy="8" r="2.1" />
+  </svg>
+);
+
+/* The grip. A plus inside the lens, because the control does one thing in one
+   direction: it enlarges. */
+export const Loupe = ({ size = 16, className }: IconProps) => (
+  <svg {...base(size)} className={className}>
+    <circle cx="6.9" cy="6.9" r="4.3" />
+    <path d="M10.1 10.1 14 14" />
+    <path d="M5.2 6.9h3.4" />
+    <path d="M6.9 5.2v3.4" />
+  </svg>
+);
+

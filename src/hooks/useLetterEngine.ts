@@ -213,15 +213,71 @@ export function useLetterEngine<T extends HTMLElement>(options: Options = {}) {
       });
     };
 
-    /* The webfont decides the widths, so wait for it. If the API is missing,
-       measure now and accept a one-frame approximation. */
-    let cancelled = false;
-    if (typeof document !== "undefined" && "fonts" in document) {
-      document.fonts.ready.then(() => {
-        if (!cancelled) freezeAndMeasure();
+    /* Re-freezing is not "call freezeAndMeasure again".
+
+       getBoundingClientRect returns the frozen width once one is set, and it
+       includes transforms. So put the line back to a still, unstyled state
+       first: clear the widths, park every letter at rest, then measure. */
+    const refreeze = () => {
+      letters.forEach((letter) => {
+        letter.current = cloneTarget(REST);
+        letter.setX(0);
+        letter.setY(0);
+        letter.setRotate(0);
+        letter.setScaleX(1);
+        letter.setScaleY(1);
+        letter.element.style.width = "";
       });
-    } else {
+      frozen = false;
       freezeAndMeasure();
+    };
+
+    /* The webfont decides the advance width of every glyph, so the widths must
+       be frozen from the webfont — not from the fallback.
+
+       document.fonts.ready is not enough on its own: it resolves immediately
+       when no font load has been *started* yet, and on a cold load that is the
+       normal state, because the families arrive in a separate third-party
+       stylesheet that has not been parsed when this effect runs. Freezing
+       there records fallback metrics, and every glyph of the real family is
+       then wider than the box reserved for it — which is exactly how the name
+       ends up printed on top of itself.
+
+       So: name the family, wait for it, wait for the set, then freeze. */
+    let cancelled = false;
+
+    const waitForFont = async (): Promise<void> => {
+      if (typeof document === "undefined" || !("fonts" in document)) return;
+      const family = getComputedStyle(host).fontFamily;
+      try {
+        await document.fonts.load(`1em ${family}`);
+      } catch {
+        /* An exotic family string. The set below is still worth waiting for. */
+      }
+      try {
+        await document.fonts.ready;
+      } catch {
+        /* Nothing to do: measure with whatever is applied. */
+      }
+    };
+
+    void waitForFont().then(() => {
+      if (cancelled) return;
+      refreeze();
+      /* One more pass on the next frame. The first can land in the same frame
+         the face is applied, before layout has used the new metrics. */
+      requestAnimationFrame(() => {
+        if (!cancelled) refreeze();
+      });
+    });
+
+    /* Any face that arrives later — a second weight, a slow retry — changes
+       the metrics again. Re-freezing is idempotent and costs one layout read. */
+    const onFontLoaded = () => {
+      if (!cancelled) refreeze();
+    };
+    if (typeof document !== "undefined" && "fonts" in document) {
+      document.fonts.addEventListener("loadingdone", onFontLoaded);
     }
 
     /* A resize can rewrap the heading, which moves every letter. Widths stay
@@ -444,6 +500,9 @@ export function useLetterEngine<T extends HTMLElement>(options: Options = {}) {
     /* ---- 7. put it back exactly as it was ---------------------------------- */
     return () => {
       cancelled = true;
+      if (typeof document !== "undefined" && "fonts" in document) {
+        document.fonts.removeEventListener("loadingdone", onFontLoaded);
+      }
       unsubscribe();
       observer.disconnect();
       release();

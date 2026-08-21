@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { CV_ORDER, cv } from "../../data/cv";
 import { useLocale } from "../../context/LocaleContext";
-import { Check, Download } from "./Icons";
+import { Check, Download, Eye } from "./Icons";
 import { downloadCv, nativeSaveCv, warmCv } from "../../lib/cv";
 import type { Locale } from "../../data/translations";
+import CvView from "./CvView";
 
 /**
- * CvButton - one plate that names the file, and a rail with three cells that
- * choose its language: AR, EN, FR.
+ * CvButton - one plate that names the file, a rail with three cells that choose
+ * its language, and an eye that reads it instead of saving it.
  *
  * WHY THE CODES ARE THE WHOLE LABEL. Three cells, three glyph pairs, identical
  * in every locale. A full language name would be a different width in each of
@@ -25,13 +26,23 @@ import type { Locale } from "../../data/translations";
  * still downloads the file. The click handler is an enhancement over a link
  * that already works, not a replacement for one.
  *
- * WHY THE GLIDER IS CSS AND NOT STATE. The lit segment on the rail answers two
- * questions at once: which language the site is in, and which file you are
- * about to ask for. The first is `data-rest`, written once per locale change.
- * The second is `:has(.cv__opt:nth-of-type(n):hover)` in the stylesheet. Neither
- * costs a re-render, and the only property that animates is translateY on one
- * composited layer - so pointing at a cell costs React nothing and the
- * compositor one transform.
+ * WHY THE GLIDER IS CSS AND NOT STATE. The lit segment answers two questions at
+ * once: which language the site is in, and which file you are about to ask for.
+ * The first is `data-rest`, written once per locale change. The second is
+ * `:has(.cv__opt:nth-of-type(n):hover)` in the stylesheet. Neither costs a
+ * re-render, and the only property that animates is translateY on one
+ * composited layer.
+ *
+ * WHY THE EYE IS IN THE HEAD AND NOT ON THE RAIL. The glider is positioned by
+ * counting .cv__opt with nth-of-type, so a fourth control inside .cv__seg would
+ * put a fourth row on a rail divided into three. The head is where a verb that
+ * applies to all three files belongs anyway: read, as against save.
+ *
+ * WHY THE EYE WARMS THE FILE. Hover and focus start the same race the cells
+ * start, so pressing the eye usually has nothing left to wait for - the window
+ * opens on a Blob that is already in memory. This is why the feature is cheap:
+ * the reader and the download share one race, one cache and one integrity
+ * check.
  */
 
 type CellState = "idle" | "busy" | "done" | "failed";
@@ -47,8 +58,10 @@ export default function CvButton() {
     ar: "idle",
   });
   const [note, setNote] = useState("");
+  const [viewing, setViewing] = useState(false);
   const timers = useRef<Partial<Record<Locale, number>>>({});
   const warmed = useRef<Set<Locale>>(new Set());
+  const eyeRef = useRef<HTMLButtonElement | null>(null);
   const alive = useRef(true);
 
   useEffect(() => {
@@ -121,6 +134,13 @@ export default function CvButton() {
     [start],
   );
 
+  /* The keyboard goes back to the control that opened the window, not to the
+     top of the page. */
+  const closeView = useCallback(() => {
+    setViewing(false);
+    eyeRef.current?.focus();
+  }, []);
+
   const ariaFor = (locale: Locale): string => {
     if (locale === "ar") return t.ui.cvAriaAr;
     if (locale === "fr") return t.ui.cvAriaFr;
@@ -142,6 +162,23 @@ export default function CvButton() {
           <span className="cv__label">{t.ui.cvDownload}</span>
           <span className="cv__meta">{t.ui.cvHint}</span>
         </span>
+
+        {/* Read, as against save. One button, the site's own glyph, and the
+            same warm-up the cells use. */}
+        <button
+          ref={eyeRef}
+          type="button"
+          className="cv__eye"
+          onClick={() => setViewing(true)}
+          onPointerEnter={() => warm(t.locale)}
+          onFocus={() => warm(t.locale)}
+          aria-label={t.ui.cvViewOpen}
+          title={t.ui.cvViewOpen}
+          aria-haspopup="dialog"
+          aria-expanded={viewing}
+        >
+          <Eye size={16} />
+        </button>
       </span>
 
       <span
@@ -153,6 +190,7 @@ export default function CvButton() {
         {CV_ORDER.map((locale) => {
           const file = cv[locale];
           const size = `${Math.round(file.bytes / 1024)} ${t.ui.cvSizeUnit}`;
+          const state = states[locale];
           return (
             <a
               key={locale}
@@ -161,10 +199,10 @@ export default function CvButton() {
               download={file.fileName}
               hrefLang={locale}
               type="application/pdf"
-              data-state={states[locale]}
+              data-state={state}
               data-current={locale === t.locale ? "true" : undefined}
-              aria-label={`${ariaFor(locale)} - ${size}`}
-              title={`${file.code} - ${size}`}
+              aria-label={`${ariaFor(locale)} · ${size}`}
+              title={`${file.code} — ${size}`}
               onPointerEnter={() => warm(locale)}
               onFocus={() => warm(locale)}
               onClick={(event) => pick(event, locale)}
@@ -181,19 +219,16 @@ export default function CvButton() {
           );
         })}
 
-        {/* The rail, and the one lit segment that rides it. A span, not an
-            anchor, so :nth-of-type on .cv__opt keeps counting only the three
-            cells above. */}
         <span className="cv__rail" aria-hidden="true">
           <span className="cv__glider" />
         </span>
       </span>
 
-      {/* The state of a download is information a screen reader needs and the
-          eye already has from the cell itself. */}
       <p className="cv__live" role="status" aria-live="polite">
         {note}
       </p>
+
+      {viewing ? <CvView locale={t.locale} onClose={closeView} /> : null}
     </div>
   );
 }

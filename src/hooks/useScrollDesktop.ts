@@ -40,12 +40,9 @@ export function useScrollDesktop(): void {
     ScrollTrigger.config({
       limitCallbacks: true,
       ignoreMobileResize: true,
-      /* الافتراضي يشمل resize، وهو ينطلق مع كل انطواء لشريط العنوان ومع كل
-         ظهور للوحة مفاتيح. إعادة القياس عندنا يملكها lib/measure.ts وحده. */
-      /* بلا visibilitychange: العودة إلى التبويب لا تُغيّر حجم شيء، وإعادة
-         قياس كاملة في تلك اللحظة تعني قراءة هندسية لكل مُطلِق قبل أوّل إطار.
-         الخطوط والدوران والتحميل تمرّ أصلاً عبر lib/measure.ts. */
-      autoRefreshEvents: "DOMContentLoaded,load",
+      /* resize is back: ignoreMobileResize already absorbs URL-bar noise, and
+         without it nothing re-measures after a window change. */
+      autoRefreshEvents: "DOMContentLoaded,load,resize",
     });
 
     if (prefersReducedMotion()) {
@@ -90,11 +87,25 @@ export function useScrollDesktop(): void {
       requestMeasure();
     };
 
+    /* content-visibility:auto replaces an estimated section height with the
+       real one while you scroll. A section that guessed 1000px and needs
+       1240px moves every trigger below it by 240px, and no scroll or resize
+       event announces that. Watch the height itself. */
+    let lastHeight = document.body.scrollHeight;
+    const heightWatch = new ResizeObserver(() => {
+      const next = document.body.scrollHeight;
+      if (Math.abs(next - lastHeight) < 24) return;
+      lastHeight = next;
+      remeasure();
+    });
+    heightWatch.observe(document.body);
+
     if (document.fonts?.ready) void document.fonts.ready.then(remeasure);
     window.addEventListener("orientationchange", remeasure);
     window.addEventListener("load", remeasure);
 
     return () => {
+      heightWatch.disconnect();
       window.removeEventListener("orientationchange", remeasure);
       window.removeEventListener("load", remeasure);
       unregister();

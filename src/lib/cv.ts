@@ -310,3 +310,63 @@ export async function downloadCv(file: CvFile): Promise<CvDelivery> {
     suspect: resolved.suspect,
   };
 }
+
+/* --- reading the file in place ------------------------------------------- */
+
+/** A resolved CV, addressable by the browser as a URL rather than saved to disk. */
+export type CvDoc = {
+  /** A blob: URL any <iframe> or new tab can read. */
+  url: string;
+  origin: CvOrigin;
+  bytes: number;
+  /** True when the copy that answered is not the size data/cv.ts expects. */
+  suspect: boolean;
+};
+
+/**
+ * One object URL per language, kept for the life of the page.
+ *
+ * WHY IT IS NOT REVOKED EAGERLY. An object URL is a handle, not a copy: the Blob
+ * behind it is the one the memory map already holds for the download path.
+ * Keeping the handle means closing and reopening the reader, or switching
+ * language and switching back, costs no network, no cache read and no decode.
+ * Revoking it early would only guarantee that the second open is slower than
+ * the first, for no saving at all.
+ */
+const docs = new Map<CvLocale, CvDoc>();
+
+/**
+ * The file, as something the browser can display. Reuses resolveFile, so the
+ * race, both integrity checks and the Cache Storage entry are the ones the
+ * download path already uses - there is no second network policy in this file
+ * and there must never be one.
+ */
+export async function readCv(file: CvFile): Promise<CvDoc> {
+  const existing = docs.get(file.locale);
+  if (existing) return existing;
+
+  const resolved = await resolveFile(file);
+
+  /* Two callers awaiting the same resolveFile promise must not create two URLs
+     for one Blob. */
+  const again = docs.get(file.locale);
+  if (again) return again;
+
+  const doc: CvDoc = {
+    url: URL.createObjectURL(resolved.blob),
+    origin: resolved.origin,
+    bytes: resolved.blob.size,
+    suspect: resolved.suspect,
+  };
+  docs.set(file.locale, doc);
+  return doc;
+}
+
+/** Hands every held URL back. Nothing calls this in normal use - a page unload
+    releases them anyway - so it exists to keep the handles from being a leak
+    with no door. */
+export function releaseCvDocs(): void {
+  for (const doc of docs.values()) URL.revokeObjectURL(doc.url);
+  docs.clear();
+}
+

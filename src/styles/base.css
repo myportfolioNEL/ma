@@ -576,8 +576,8 @@ h1, h2, h3,
 /* الدخول يبقى، لكن بلا قطع مسار ولا تدرّج مقياس. */
 [data-quality="low"] [data-reveal] {
   transition:
-    opacity var(--d-1) var(--e-out),
-    translate var(--d-1) var(--e-out);
+    opacity var(--d-1) var(--e-out) var(--rd, 0s),
+    translate var(--d-1) var(--e-out) var(--rd, 0s);
   clip-path: none;
   scale: 1;
 }

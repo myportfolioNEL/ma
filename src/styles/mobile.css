@@ -48,14 +48,6 @@ body {
   position: relative;
   z-index: var(--z-content);
   padding: var(--s-7) var(--gutter);
-
-  /* Skip layout and paint for sections that are not on screen. This matters
-     more here than on the desktop: it is the difference between a phone
-     laying out the whole document on every scroll frame and laying out only
-     the screen in front of you. contain-intrinsic-size is mandatory next to
-     it, otherwise the scrollbar jumps as sections are skipped and restored. */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 620px;
 }
 
 .section--tight { padding-block: var(--s-6); }
@@ -123,31 +115,26 @@ body {
    short: an element travels less of it, so the same duration reads as slower. */
 [data-reveal] {
   opacity: 0;
-  translate: 0 14px;
+  translate: 0 10px;
   transition:
-    opacity 0.4s var(--e-out) var(--rd, 0s),
-    translate 0.4s var(--e-out) var(--rd, 0s);
+    opacity var(--d-1) var(--e-out) var(--rd, 0s),
+    translate var(--d-2) var(--e-out) var(--rd, 0s),
+    scale var(--d-2) var(--e-out) var(--rd, 0s);
 }
 
-[data-reveal].is-in { opacity: 1; translate: 0 0; }
+[data-reveal].is-in { opacity: 1; translate: 0 0; scale: 1; }
 
 [data-reveal="fade"] { translate: 0 0; }
+[data-reveal="up"]   { translate: 0 10px; }
+[data-reveal="down"] { translate: 0 -10px; }
 
-[data-reveal="blur"] {
-  filter: blur(8px);
-  transition:
-    opacity 0.4s var(--e-out) var(--rd, 0s),
-    translate 0.4s var(--e-out) var(--rd, 0s),
-    filter 0.44s var(--e-out) var(--rd, 0s);
-}
-
-[data-reveal="blur"].is-in { filter: blur(0); }
+[data-reveal="blur"] { scale: 0.99; }
 
 [data-reveal="clip"] {
   opacity: 1;
   translate: 0 0;
   clip-path: inset(0 0 100% 0);
-  transition: clip-path 0.6s var(--e-out) var(--rd, 0s);
+  transition: clip-path var(--d-3) var(--e-out) var(--rd, 0s);
 }
 
 [data-reveal="clip"].is-in { clip-path: inset(0 0 0% 0); }
@@ -1897,15 +1884,6 @@ html {
 .pw[data-parked="true"] .pw__flag,
 .pw[data-parked="true"] .pw__wait { display: none; }
 
-/* الأقسام خارج الشاشة */
-#numbers,
-#about,
-#capabilities,
-#contact {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 900px;
-}
-
 img[loading="lazy"] { content-visibility: auto; }
 
 /* --------------------------------------------------------------------------
@@ -2856,39 +2834,6 @@ code {
 }
 
 /* ==========================================================================
-   ROUND 28 · الدخول — الهاتف
-   ========================================================================== */
-
-[data-reveal] {
-  transition:
-    opacity var(--d-1) var(--e-out),
-    translate var(--d-2) var(--e-out),
-    scale var(--d-2) var(--e-out),
-    clip-path var(--d-3) var(--e-out);
-}
-
-[data-reveal="up"] { translate: 0 10px; }
-[data-reveal="down"] { translate: 0 -10px; }
-
-[data-reveal="blur"] {
-  filter: none;
-  scale: 0.99;
-  opacity: 0;
-}
-
-[data-reveal="blur"].is-in {
-  scale: 1;
-  opacity: 1;
-}
-
-[data-reveal].is-in {
-  translate: 0 0;
-}
-
-
-
-
-/* ==========================================================================
    ROUND 28.1 · الصورة تملأ إطارها
 
    كانت `block-size: 100%` تستند إلى ارتفاع مشتقّ من `aspect-ratio`، وهو ارتفاع
@@ -3406,4 +3351,401 @@ code {
     transform: scaleX(1);
   }
 }
+
+/* ============================================================
+   CV reader - phone
+   ============================================================ */
+
+.cv__head {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.cv__eye {
+  inline-size: var(--tap);
+  block-size: var(--tap);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv__eye:active {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.cvv {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+}
+
+.cvv__scrim {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(var(--scrim-blur));
+  animation: cvv-fade 0.22s var(--e-out) both;
+}
+
+/* Arrives from the bottom edge, leaves the same way, and can be pushed back
+   down with a thumb. The inset, the radius and the shadow are the ones .sheet
+   already uses. */
+.cvv__panel {
+  position: absolute;
+  inset: 5svh 0 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  background: var(--surface);
+  border-block-start: 1px solid var(--gold-hair);
+  border-radius: 18px 18px 0 0;
+  box-shadow: var(--shadow-sheet);
+  overflow: hidden;
+  transform: translate3d(0, 0, 0);
+  animation: cvv-sheet-in 0.32s var(--e-out) both;
+}
+
+.cvv__grab {
+  block-size: 26px;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  cursor: grab;
+}
+
+.cvv__grab > span {
+  inline-size: 42px;
+  block-size: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--line-strong);
+}
+
+.cvv__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-4) var(--s-3);
+  border-block-end: 1px solid var(--gold-hair-soft);
+}
+
+.cvv__crumb {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  font: 500 0.72rem/1 var(--font-mono);
+  letter-spacing: var(--ls-mono);
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cvv__seg {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: var(--radius-pill);
+}
+
+.cvv__lang {
+  min-inline-size: 3rem;
+  block-size: 34px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-dim);
+  font: 500 var(--t-mono)/1 var(--font-mono);
+  letter-spacing: var(--ls-mono);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cvv__lang[data-current="true"] {
+  color: var(--paper);
+  background: var(--text);
+}
+
+.cvv__close {
+  inline-size: var(--tap);
+  block-size: var(--tap);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cvv__stage {
+  position: relative;
+  min-block-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: var(--s-3);
+  display: grid;
+  place-items: start center;
+}
+
+.cvv__pane {
+  position: relative;
+  inline-size: 100%;
+  aspect-ratio: 1 / 1.4142;
+  background: var(--paper);
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.cvv__doc {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  border: 0;
+  display: block;
+  opacity: 0;
+  transition: opacity 0.28s var(--e-out);
+}
+
+.cvv__pane[data-inline="live"] .cvv__doc {
+  opacity: 1;
+}
+
+.cvv__pane[data-dragging="true"] .cvv__doc {
+  pointer-events: none;
+}
+
+.cvv__wait,
+.cvv__miss {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  gap: var(--s-3);
+  text-align: center;
+}
+
+.cvv__miss {
+  padding: var(--s-5);
+  background: var(--surface);
+}
+
+.cvv__wait {
+  pointer-events: none;
+}
+
+.cvv__miss-text {
+  margin: 0;
+  max-inline-size: 30ch;
+  font-size: var(--t-small);
+  line-height: var(--lh-body);
+  color: var(--text-dim);
+}
+
+.cvv__miss-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--s-3);
+}
+
+/* Smaller box than the desktop one: a thumb covers more of a phone screen than
+   a cursor covers of a monitor, and the box has to stay readable beside it. */
+.cvv__loupe {
+  --lp-size: 184px;
+  --lp-x: 0px;
+  --lp-y: 0px;
+  --lp-tx: 0px;
+  --lp-ty: 0px;
+  --lp-z: 2.5;
+  --lp-w: 100%;
+  --lp-h: 100%;
+
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: var(--lp-size, 184px);
+  block-size: var(--lp-size, 184px);
+  translate: var(--lp-x, 0px) var(--lp-y, 0px);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow: var(--elev-2);
+  contain: paint;
+  will-change: translate;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.16s var(--e-out);
+  z-index: 2;
+}
+
+.cvv__loupe[data-live="true"] {
+  opacity: 1;
+}
+
+.cvv__loupe-doc {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: var(--lp-w, 100%);
+  block-size: var(--lp-h, 100%);
+  transform-origin: 0 0;
+  transform: translate3d(var(--lp-tx, 0px), var(--lp-ty, 0px), 0)
+    scale(var(--lp-z, 2.5));
+  will-change: transform;
+}
+
+.cvv__loupe-frame {
+  inline-size: 100%;
+  block-size: 100%;
+  border: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.cvv__loupe-ring {
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.cvv__grip {
+  position: absolute;
+  inset-block-end: var(--s-4);
+  inset-inline-end: var(--s-4);
+  inline-size: var(--tap);
+  block-size: var(--tap);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gold-hair);
+  border-radius: var(--radius-pill);
+  background: var(--surface-glass);
+  box-shadow: var(--elev-1);
+  color: var(--text-dim);
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: grab;
+  z-index: 3;
+}
+
+.cvv__grip[data-armed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.cvv__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4)
+    calc(var(--s-3) + env(safe-area-inset-bottom, 0px));
+  border-block-start: 1px solid var(--gold-hair-soft);
+}
+
+.cvv__tools {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.cvv__tool {
+  inline-size: var(--tap);
+  block-size: var(--tap);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-dim);
+  font: 500 0.86rem/1 var(--font-mono);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cvv__tool:disabled {
+  opacity: 0.38;
+}
+
+.cvv__zoom {
+  min-inline-size: 3rem;
+  text-align: center;
+  font: 500 var(--t-mono)/1 var(--font-mono);
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.cvv__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text-dim);
+  font: 500 var(--t-mono)/1 var(--font-mono);
+  letter-spacing: var(--ls-mono);
+  text-transform: uppercase;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cvv__link:active {
+  color: var(--accent);
+}
+
+@keyframes cvv-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cvv-sheet-in {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+[data-quality="low"] .cvv__scrim {
+  backdrop-filter: none;
+}
+
+[data-quality="low"] .cvv__panel {
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cvv__scrim,
+  .cvv__panel {
+    animation: none;
+  }
+
+  .cvv__doc,
+  .cvv__loupe {
+    transition: none;
+  }
+}
+
 

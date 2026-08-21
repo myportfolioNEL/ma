@@ -17,7 +17,7 @@ import Reveal from "../ui/Reveal";
  * لا أنّ شيئاً يُرسَم — والفرق بينهما هو ما أضاع أسبوعاً.
  */
 
-/** بعدها نعرض الحروف. وإن وصلت الصورة بعد ذلك فهي تفوز وتُعرض. */
+/** بعدها نعرض الحروف — ثم إن وصلت الصورة تفوز وتُعرض. المهلة تبدأ عند الظهور. */
 const PATIENCE_MS = 10000;
 
 export default function About() {
@@ -37,70 +37,109 @@ export default function About() {
   const src = sources[index] ?? sources[0];
   const isLast = index >= sources.length - 1;
 
-  /* حالة واحدة، مالك واحد. لا onLoad ولا onError على العنصر: كلاهما فرع ثانٍ
-     يقول نصف الحقيقة، وقد جرّبنا نصف الحقيقة. */
+  /* One state, one owner — but the clock now starts at the right moment.
+
+     #about is a content-visibility:auto section, so at mount this <img> is
+     inside a subtree the browser is not rendering. Calling decode() there and
+     putting a ten-second stopwatch on it measures the section's distance from
+     the viewport, not the network. The observer waits until the frame is real.
+
+     And the promise this file has always made in its own comment is finally
+     kept: if the picture arrives after the timer, it still wins. */
   useEffect(() => {
     const image = imageRef.current;
     if (!image) return;
+
     let alive = true;
-
-    const settle = (next: "ready" | "failed") => {
-      if (alive) setState(next);
-    };
-
-    /* أوّل حسم يفوز ويغلق الباب خلفه. الجولة 29 أخطأت هنا بالضبط: كان الحارس
-       يُعلن الفشل بعد عشر ثوانٍ حتّى على صورة ظاهرة منذ الثانية الأولى، لأنّ شيئاً
-       لم يكن يلغي المؤقّت عند النجاح. */
-    let done = false;
+    let settled = false;
+    let timer = 0;
 
     setState("loading");
 
-    const timer = window.setTimeout(() => {
-      if (!alive || done) return;
-      done = true;
-      if (import.meta.env.DEV) {
-        console.warn("[portrait] تجاوز المهلة:", image.currentSrc || src);
-      }
-      settle("failed");
-    }, PATIENCE_MS);
-
-    const finish = (next: "ready" | "failed") => {
-      if (!alive || done) return;
-      done = true;
+    const succeed = (): void => {
+      if (!alive) return;
+      settled = true;
       window.clearTimeout(timer);
-      settle(next);
+      setState("ready");
     };
 
-    image
-      .decode()
-      .then(() => {
-        /* ملفّ تالف قد يُحَلّ وعرضه صفر. ليس نجاحاً. */
-        if (image.naturalWidth === 0) finish("failed");
-        else finish("ready");
-      })
-      .catch((error: DOMException) => {
-        /* تغيّر المصدر أثناء الفكّ: ليس فشلاً، بل إلغاء. */
-        if (error?.name === "AbortError") return;
-        if (!alive || done) return;
+    const fail = (): void => {
+      if (!alive || settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      setState("failed");
+    };
+
+    /* The door stays open. A late arrival overrides a timed-out "failed". */
+    const onLate = (): void => {
+      if (!alive) return;
+      if (image.naturalWidth > 0) succeed();
+    };
+
+    const attempt = (): void => {
+      if (!alive) return;
+
+      /* Already decoded and in the cache: no timer, no flash of letters. */
+      if (image.complete && image.naturalWidth > 0) {
+        succeed();
+        return;
+      }
+
+      /* Show the letters rather than an empty frame — but do not close the
+         door behind them. onLate can still promote this to "ready". */
+      timer = window.setTimeout(() => {
+        if (!alive || settled) return;
         if (import.meta.env.DEV) {
-          console.warn(
-            "[portrait] تعذّر:",
-            image.currentSrc || src,
-            "—",
-            error?.name ?? "decode",
-          );
+          console.warn("[portrait] slow, showing initials:", image.currentSrc || src);
         }
-        if (isLast) {
-          finish("failed");
-        } else {
-          done = true;
-          window.clearTimeout(timer);
-          setIndex((current) => current + 1);
-        }
-      });
+        setState("failed");
+      }, PATIENCE_MS);
+
+      image
+        .decode()
+        .then(() => {
+          /* A corrupt file can resolve with a zero-width bitmap. Not success. */
+          if (image.naturalWidth === 0) fail();
+          else succeed();
+        })
+        .catch((error: DOMException) => {
+          /* The source changed mid-decode: a cancellation, not a failure. */
+          if (error?.name === "AbortError") return;
+          if (!alive || settled) return;
+          if (import.meta.env.DEV) {
+            console.warn(
+              "[portrait] failed:",
+              image.currentSrc || src,
+              "—",
+              error?.name ?? "decode",
+            );
+          }
+          if (isLast) {
+            fail();
+          } else {
+            settled = true;
+            window.clearTimeout(timer);
+            setIndex((current) => current + 1);
+          }
+        });
+    };
+
+    image.addEventListener("load", onLate);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        attempt();
+      },
+      { rootMargin: "400px 0px" },
+    );
+    observer.observe(image);
 
     return () => {
       alive = false;
+      observer.disconnect();
+      image.removeEventListener("load", onLate);
       window.clearTimeout(timer);
     };
   }, [src, isLast]);
@@ -123,6 +162,7 @@ export default function About() {
           start: "top bottom",
           end: "bottom top",
           scrub: true,
+          invalidateOnRefresh: true,
           onToggle: (self) => {
             image.style.willChange = self.isActive ? "transform" : "";
           },
@@ -167,7 +207,8 @@ export default function About() {
               src={src}
               alt={profile.name}
               decoding="async"
-              fetchPriority="high"
+              loading="eager"
+              fetchPriority="auto"
             />
 
             <span className="portrait__fallback" aria-hidden="true">

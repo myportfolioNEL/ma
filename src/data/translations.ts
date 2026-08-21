@@ -78,6 +78,21 @@ export type TranslationBundle = {
     cvStatusSuspect: string;
     cvStatusFailed: string;
     cvSizeUnit: string;
+    /* The CV reader: an eye beside the plate, a window, a magnifier. */
+    cvViewOpen: string;
+    cvViewTitle: string;
+    cvViewHint: string;
+    cvViewUnverified: string;
+    cvViewLangLabel: string;
+    cvViewLoading: string;
+    cvViewFailed: string;
+    cvViewRetry: string;
+    cvViewNewTab: string;
+    cvViewSave: string;
+    cvViewLoupe: string;
+    cvViewLoupeHint: string;
+    cvViewZoomIn: string;
+    cvViewZoomOut: string;
     factTimeline: string;
     factRole: string;
     factContext: string;
@@ -326,6 +341,20 @@ export const translations: Record<Locale, TranslationBundle> = {
       cvStatusSuspect: "Saved, but this copy is not the expected size",
       cvStatusFailed: "Download failed - handing over to the browser",
       cvSizeUnit: "KB",
+      cvViewOpen: "Read the CV without downloading it",
+      cvViewTitle: "Curriculum vitae",
+      cvViewHint: "Nothing is downloaded — the file is read in place",
+      cvViewUnverified: "This copy could not be checked against its expected size",
+      cvViewLangLabel: "Language of the CV",
+      cvViewLoading: "Opening the CV",
+      cvViewFailed: "This browser will not show the PDF inside the page. It still opens in a tab.",
+      cvViewRetry: "Try again",
+      cvViewNewTab: "Open in a new tab",
+      cvViewSave: "Save the file",
+      cvViewLoupe: "Magnifier — drag it over the part you want enlarged",
+      cvViewLoupeHint: "Drag to magnify. Wheel, or + and −, to change the zoom.",
+      cvViewZoomIn: "Increase the magnification",
+      cvViewZoomOut: "Reduce the magnification",
       factTimeline: "Timeline",
       factRole: "Role",
       factContext: "Context",
@@ -573,6 +602,20 @@ export const translations: Record<Locale, TranslationBundle> = {
       cvStatusSuspect: "Enregistré, mais cette copie n'a pas la taille prévue",
       cvStatusFailed: "Échec du téléchargement - le navigateur prend le relais",
       cvSizeUnit: "Ko",
+      cvViewOpen: "Lire le CV sans le télécharger",
+      cvViewTitle: "Curriculum vitæ",
+      cvViewHint: "Rien n'est téléchargé — le fichier est lu sur place",
+      cvViewUnverified: "Cette copie n'a pas pu être vérifiée face à sa taille prévue",
+      cvViewLangLabel: "Langue du CV",
+      cvViewLoading: "Ouverture du CV",
+      cvViewFailed: "Ce navigateur n'affiche pas le PDF dans la page. Il s'ouvre encore dans un onglet.",
+      cvViewRetry: "Réessayer",
+      cvViewNewTab: "Ouvrir dans un nouvel onglet",
+      cvViewSave: "Enregistrer le fichier",
+      cvViewLoupe: "Loupe — faites-la glisser sur la partie à agrandir",
+      cvViewLoupeHint: "Glissez pour agrandir. Molette, ou + et −, pour régler le zoom.",
+      cvViewZoomIn: "Augmenter l'agrandissement",
+      cvViewZoomOut: "Réduire l'agrandissement",
       factTimeline: "Durée",
       factRole: "Rôle",
       factContext: "Contexte",
@@ -819,6 +862,20 @@ export const translations: Record<Locale, TranslationBundle> = {
       cvStatusSuspect: "حُفظ الملف، لكن حجم هذه النسخة غير متوقّع",
       cvStatusFailed: "تعذّر التنزيل - المتصفّح يتولّى الأمر",
       cvSizeUnit: "ك.ب",
+      cvViewOpen: "قراءة السّيرة الذّاتية دون تنزيلها",
+      cvViewTitle: "السّيرة الذّاتية",
+      cvViewHint: "لا شيء يُنزّل — الملفّ يُقرأ في مكانه",
+      cvViewUnverified: "لم يتسنَّ التحقّق من حجم هذه النّسخة مقابل الحجم المتوقّع",
+      cvViewLangLabel: "لغة السّيرة الذّاتية",
+      cvViewLoading: "جارٍ فتح السّيرة الذّاتية",
+      cvViewFailed: "هذا المتصفّح لا يعرض ملفّ PDF داخل الصّفحة، وما زال يُفتح في تبويب",
+      cvViewRetry: "إعادة المحاولة",
+      cvViewNewTab: "فتح في تبويب جديد",
+      cvViewSave: "حفظ الملفّ",
+      cvViewLoupe: "مكبّرة — اسحبها فوق الجزء الّذي تريد تكبيره",
+      cvViewLoupeHint: "اسحب للتكبير. العجلة أو + و − لتغيير المقدار.",
+      cvViewZoomIn: "زيادة التكبير",
+      cvViewZoomOut: "تقليل التكبير",
       factTimeline: "المدة",
       factRole: "الدور",
       factContext: "السياق",
