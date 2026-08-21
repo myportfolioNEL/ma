@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { CV_ORDER, cv } from "../../data/cv";
 import { useLocale } from "../../context/LocaleContext";
@@ -9,7 +9,7 @@ import CvView from "./CvView";
 
 /**
  * CvButton - one plate that names the file, a rail with three cells that choose
- * its language, and an eye that reads it instead of saving it.
+ * its language, and an eye per file that reads it without downloading it.
  *
  * WHY THE CODES ARE THE WHOLE LABEL. Three cells, three glyph pairs, identical
  * in every locale. A full language name would be a different width in each of
@@ -33,16 +33,10 @@ import CvView from "./CvView";
  * re-render, and the only property that animates is translateY on one
  * composited layer.
  *
- * WHY THE EYE IS IN THE HEAD AND NOT ON THE RAIL. The glider is positioned by
- * counting .cv__opt with nth-of-type, so a fourth control inside .cv__seg would
- * put a fourth row on a rail divided into three. The head is where a verb that
- * applies to all three files belongs anyway: read, as against save.
- *
- * WHY THE EYE WARMS THE FILE. Hover and focus start the same race the cells
- * start, so pressing the eye usually has nothing left to wait for - the window
- * opens on a Blob that is already in memory. This is why the feature is cheap:
- * the reader and the download share one race, one cache and one integrity
- * check.
+ * WHY THREE EYES ON THE RAIL. One eye per row, in front of its own file, opening
+ * that file. The anchor elements are :nth-of-type among anchors and the button
+ * elements are :nth-of-type among buttons, so the glider rules keep working
+ * untouched.
  */
 
 type CellState = "idle" | "busy" | "done" | "failed";
@@ -58,10 +52,12 @@ export default function CvButton() {
     ar: "idle",
   });
   const [note, setNote] = useState("");
-  const [viewing, setViewing] = useState(false);
+  /* Which document the reader is showing, or null when the window is closed. */
+  const [viewing, setViewing] = useState<Locale | null>(null);
   const timers = useRef<Partial<Record<Locale, number>>>({});
   const warmed = useRef<Set<Locale>>(new Set());
-  const eyeRef = useRef<HTMLButtonElement | null>(null);
+  /* One eye per row, so focus can go back to the exact eye that was pressed. */
+  const eyes = useRef<Partial<Record<Locale, HTMLButtonElement | null>>>({});
   const alive = useRef(true);
 
   useEffect(() => {
@@ -134,12 +130,19 @@ export default function CvButton() {
     [start],
   );
 
-  /* The keyboard goes back to the control that opened the window, not to the
-     top of the page. */
-  const closeView = useCallback(() => {
-    setViewing(false);
-    eyeRef.current?.focus();
+  const openView = useCallback((locale: Locale) => {
+    setViewing(locale);
   }, []);
+
+  /* Returning focus to the eye that opened the window is what makes the reader
+     usable by keyboard: you come back exactly where you left. */
+  const closeView = useCallback(() => {
+    const locale = viewing;
+    setViewing(null);
+    if (locale) {
+      window.requestAnimationFrame(() => eyes.current[locale]?.focus());
+    }
+  }, [viewing]);
 
   const ariaFor = (locale: Locale): string => {
     if (locale === "ar") return t.ui.cvAriaAr;
@@ -162,23 +165,6 @@ export default function CvButton() {
           <span className="cv__label">{t.ui.cvDownload}</span>
           <span className="cv__meta">{t.ui.cvHint}</span>
         </span>
-
-        {/* Read, as against save. One button, the site's own glyph, and the
-            same warm-up the cells use. */}
-        <button
-          ref={eyeRef}
-          type="button"
-          className="cv__eye"
-          onClick={() => setViewing(true)}
-          onPointerEnter={() => warm(t.locale)}
-          onFocus={() => warm(t.locale)}
-          aria-label={t.ui.cvViewOpen}
-          title={t.ui.cvViewOpen}
-          aria-haspopup="dialog"
-          aria-expanded={viewing}
-        >
-          <Eye size={16} />
-        </button>
       </span>
 
       <span
@@ -192,30 +178,47 @@ export default function CvButton() {
           const size = `${Math.round(file.bytes / 1024)} ${t.ui.cvSizeUnit}`;
           const state = states[locale];
           return (
-            <a
-              key={locale}
-              className="cv__opt"
-              href={file.sources[0].url}
-              download={file.fileName}
-              hrefLang={locale}
-              type="application/pdf"
-              data-state={state}
-              data-current={locale === t.locale ? "true" : undefined}
-              aria-label={`${ariaFor(locale)} · ${size}`}
-              title={`${file.code} — ${size}`}
-              onPointerEnter={() => warm(locale)}
-              onFocus={() => warm(locale)}
-              onClick={(event) => pick(event, locale)}
-            >
-              <span className="cv__opt-code ltr">{file.code}</span>
-              <span className="cv__opt-size ltr" aria-hidden="true">
-                {size}
-              </span>
-              <span className="cv__opt-done" aria-hidden="true">
-                <Check size={13} />
-              </span>
-              <span className="cv__opt-line" aria-hidden="true" />
-            </a>
+            <Fragment key={locale}>
+              {/* unchanged: the download link, still the primary action */}
+              <a
+                key={locale}
+                className="cv__opt"
+                href={file.sources[0].url}
+                download={file.fileName}
+                hrefLang={locale}
+                type="application/pdf"
+                data-state={state}
+                data-current={locale === t.locale ? "true" : undefined}
+                aria-label={`${ariaFor(locale)} · ${size}`}
+                title={`${file.code} — ${size}`}
+                onPointerEnter={() => warm(locale)}
+                onFocus={() => warm(locale)}
+                onClick={(event) => pick(event, locale)}
+              >
+                <span className="cv__opt-code ltr">{file.code}</span>
+                <span className="cv__opt-size ltr" aria-hidden="true">
+                  {size}
+                </span>
+                <span className="cv__opt-done" aria-hidden="true">
+                  <Check size={13} />
+                </span>
+                <span className="cv__opt-line" aria-hidden="true" />
+              </a>
+
+              {/* new: read this file without downloading it */}
+              <button
+                aria-label={`${t.ui.cvViewOpen} — ${file.code}`}
+                className="cv__eye"
+                onClick={() => openView(locale)}
+                ref={(node) => {
+                  eyes.current[locale] = node;
+                }}
+                title={`${t.ui.cvViewOpen} — ${file.code}`}
+                type="button"
+              >
+                <Eye size={15} />
+              </button>
+            </Fragment>
           );
         })}
 
@@ -228,7 +231,7 @@ export default function CvButton() {
         {note}
       </p>
 
-      {viewing ? <CvView locale={t.locale} onClose={closeView} /> : null}
+      {viewing ? <CvView doc={viewing} onDoc={setViewing} onClose={closeView} /> : null}
     </div>
   );
 }

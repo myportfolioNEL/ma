@@ -1,30 +1,28 @@
-import type { Locale } from "../../data/translations";
 import { usePlatform } from "../../lib/platform";
-import CvViewDesktop from "./CvViewDesktop";
-import CvViewMobile from "./CvViewMobile";
+import type { Locale } from "../../data/translations";
+import { CvViewDesktop } from "./CvViewDesktop";
+import { CvViewMobile } from "./CvViewMobile";
 
 /**
- * CvView - the switch, and nothing else.
+ * CvView - one door, two rooms.
  *
- * Same rule as Button, Loader and MailPlate: no component asks whether this is
- * a phone. A window that is dragged away by a finger and a window that is
- * closed with Escape want different chrome, different targets and different
- * weight, so there are two complete components and this file picks one.
- * usePlatform is a matchMedia listener, so rotating a tablet swaps the
- * implementation live.
+ * The desktop reader is a centred window; the phone reader is a sheet that comes
+ * up from the bottom and can be thrown away downwards. They are separate
+ * components because they are separate interactions, not one component with
+ * media queries in it - the same split CaseStudy and CaseSheet already use.
  */
 
-type Props = {
-  /** Which CV to open first. The window can change it without closing. */
-  locale: Locale;
+export type CvViewProps = {
+  /** Which of the three CV files is being read. */
+  doc: Locale;
+  /** Switching document from inside the window. */
+  onDoc: (locale: Locale) => void;
   onClose: () => void;
 };
 
-export default function CvView(props: Props) {
+export function CvView(props: CvViewProps) {
   const platform = usePlatform();
-  return platform === "mobile" ? (
-    <CvViewMobile {...props} />
-  ) : (
-    <CvViewDesktop {...props} />
-  );
+  return platform === "mobile" ? <CvViewMobile {...props} /> : <CvViewDesktop {...props} />;
 }
+
+export default CvView;

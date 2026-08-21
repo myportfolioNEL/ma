@@ -90,25 +90,42 @@ export const Download = ({ size = 16, className }: IconProps) => (
   </svg>
 );
 
-/* The eye is a reading glyph and it sits beside Download inside the same plate,
-   so the two have to weigh the same on the page: one closed curve, one circle,
-   nothing filled. An emoji would be a fourth typeface arriving in the middle of
-   a control, at a size nobody chose, and it would not inherit `color`. */
-export const Eye = ({ size = 16, className }: IconProps) => (
-  <svg {...base(size)} className={className}>
-    <path d="M1.6 8S3.9 3.9 8 3.9 14.4 8 14.4 8 12.1 12.1 8 12.1 1.6 8 1.6 8Z" />
-    <circle cx="8" cy="8" r="2.1" />
-  </svg>
-);
+/* Read, as against save. Two mirrored arcs and a concentric pupil - the shape
+   every icon set converges on, drawn on this file's 16 grid. */
+export function Eye({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M0.9 8C2.8 5 5.2 3.5 8 3.5S13.2 5 15.1 8c-1.9 3-4.3 4.5-7.1 4.5S2.8 11 0.9 8Z" />
+      <circle cx="8" cy="8" r="2.15" />
+    </svg>
+  );
+}
 
-/* The grip. A plus inside the lens, because the control does one thing in one
-   direction: it enlarges. */
-export const Loupe = ({ size = 16, className }: IconProps) => (
-  <svg {...base(size)} className={className}>
-    <circle cx="6.9" cy="6.9" r="4.3" />
-    <path d="M10.1 10.1 14 14" />
-    <path d="M5.2 6.9h3.4" />
-    <path d="M6.9 5.2v3.4" />
-  </svg>
-);
+/* The magnifier: circle at 43 % of the box, handle at 45 degrees with a round
+   cap, and a plus inside so it reads as "enlarge" rather than "search". */
+export function Lens({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <circle cx="6.8" cy="6.8" r="4.6" />
+      <path d="M10.05 10.05 14.4 14.4" />
+      <path d="M4.9 6.8h3.8" />
+      <path d="M6.8 4.9v3.8" />
+    </svg>
+  );
+}
+
+/* Pick it up and put it somewhere else. Shown on the glass while it is being
+   dragged, and on the handle a keyboard user can focus. */
+export function Move({ size = 16, className }: IconProps) {
+  return (
+    <svg {...base(size)} className={className}>
+      <path d="M8 2.3v11.4" />
+      <path d="M2.3 8h11.4" />
+      <path d="M6.5 4 8 2.3 9.5 4" />
+      <path d="M6.5 12 8 13.7 9.5 12" />
+      <path d="M4 6.5 2.3 8 4 9.5" />
+      <path d="M12 6.5 13.7 8 12 9.5" />
+    </svg>
+  );
+}
 

@@ -1,411 +1,239 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { CV_ORDER, cv } from "../../data/cv";
 import type { Locale } from "../../data/translations";
 import { useLocale } from "../../context/LocaleContext";
-import { useCvDoc } from "../../hooks/useCvDoc";
-import { useLoupe } from "../../hooks/useLoupe";
-import { useWaiting } from "../../hooks/useWaiting";
-import {
-  CV_VIEW_TIMEOUT,
-  LOUPE_SIZE_DESKTOP,
-  canLoupe,
-  docSrc,
-} from "../../lib/cvview";
+import { useLens } from "../../hooks/useLens";
+import { LENS_SIZE_DESKTOP } from "../../lib/lens";
+import { downloadCv } from "../../lib/cv";
 import { setScrollLocked } from "../../lib/scroll";
-import { ArrowUpRight, Close, Download, Loupe } from "./Icons";
-import LoaderDesktop from "./LoaderDesktop";
+import { ArrowUpRight, Close, Download, Lens, Move } from "./Icons";
+import { CvPaper } from "./CvPaper";
+import type { CvViewProps } from "./CvView";
 
 /**
- * CvViewDesktop - the CV, read in the page.
+ * CvViewDesktop - the reading window.
  *
- * WHY A PORTAL, AND WHY IT IS NOT OPTIONAL. This component is rendered from
- * inside the Contact section, and .section carries content-visibility: auto -
- * which implies paint containment, which makes the section a containing block
- * for fixed-position children. The plate is also inside a [data-reveal], which
- * carries a translate. A fixed overlay rendered in place would be clipped to
- * the section instead of the viewport and would sit under the header. Rendered
- * into document.body, the DOM position of the button that opened it stops
- * mattering.
+ * WHAT CHANGED AND WHY. The previous window pointed an iframe at a blob: URL and
+ * asked the browser's PDF plugin to draw the page. In a sandboxed or nested
+ * context the plugin is not allowed to run, so the pane was empty while the same
+ * URL opened perfectly in a real tab - which is exactly what the screenshots
+ * showed. The window now draws the document itself with CvPaper, so:
  *
- * WHY THE SCROLL LOCK IS OWNED HERE. lib/scroll.ts reference-counts it exactly
- * so that a second overlay can take the lock without the first one losing it.
- * Taking it on mount and giving it back on unmount is the whole contract, and
- * AppDesktop needs no new state.
+ *   - it always renders, in every browser and every embedding;
+ *   - the stage scrolls, so the whole page is reachable instead of one squeezed
+ *     A4 rectangle;
+ *   - the text can be selected, copied and found with the browser's own search;
+ *   - the lens magnifies real vector text instead of a bitmap.
  *
- * FOUR WAYS TO READ THE FILE, IN ORDER OF PREFERENCE: the frame; a new tab; the
- * download in the footer; and the three cells in the plate underneath, which
- * never stopped working. The last three are real anchors with real hrefs. An
- * engine that refuses to display a PDF inside a page is not an error state
- * here - it is one of the four ways.
+ * The PDF has not gone anywhere: the foot of the window opens it in a tab and
+ * saves it, and the plate below still downloads it. The file is the deliverable;
+ * this window is the reading room.
+ *
+ * WHY A PORTAL. The window is a child of document.body, so no ancestor's
+ * transform, filter, overflow or stacking context can clip it - the same reason
+ * CaseStudy portals.
  */
 
-type Props = {
-  locale: Locale;
-  onClose: () => void;
-};
-
-/** Whether the frame has proved it rendered something. */
-type Inline = "waiting" | "live" | "blank";
-
-export default function CvViewDesktop({ locale, onClose }: Props) {
+export function CvViewDesktop({ doc, onDoc, onClose }: CvViewProps) {
   const { t } = useLocale();
 
-  /* The window's own language, seeded from the site's. Changing it here does
-     not change the site. */
-  const [shown, setShown] = useState<Locale>(locale);
-  const file = cv[shown];
+  const lens = useLens({ size: LENS_SIZE_DESKTOP, docKey: doc });
+  const restore = useRef<HTMLElement | null>(null);
+  const file = cv[doc];
 
-  const { state, src, retry } = useCvDoc(shown);
-  const [inline, setInline] = useState<Inline>("waiting");
-  const waiting = useWaiting(
-    state === "loading" || (src !== "" && inline === "waiting"),
-  );
-
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const docRef = useRef<HTMLIFrameElement | null>(null);
-  const watchdogRef = useRef(0);
-
-  /* Asked once. A device that cannot afford a second browsing context is not
-     offered a grip, and nothing about that is announced to it. */
-  const [available] = useState(() => canLoupe());
-
-  const loupe = useLoupe<HTMLDivElement, HTMLSpanElement>({
-    size: LOUPE_SIZE_DESKTOP,
-    enabled: available && src !== "",
-  });
-
-  const { armed, dismiss, zoomBy } = loupe;
-
-  /* --- the page behind this one stops moving ----------------------------- */
+  /* Escape closes the lens first, then the window. Two presses, two intentions -
+     never lose the reader's place in one keystroke. */
+  const escape = useCallback(() => {
+    if (lens.open) {
+      lens.close();
+      return;
+    }
+    onClose();
+  }, [lens, onClose]);
 
   useEffect(() => {
     setScrollLocked(true);
     return () => setScrollLocked(false);
   }, []);
 
-  /* --- did the frame actually render? ----------------------------------- */
-
+  /* Focus trap - the same shape as CaseStudy.tsx. */
   useEffect(() => {
-    setInline("waiting");
-    if (src === "") return;
-
-    watchdogRef.current = window.setTimeout(() => {
-      watchdogRef.current = 0;
-      setInline((current) => (current === "waiting" ? "blank" : current));
-    }, CV_VIEW_TIMEOUT);
-
-    return () => {
-      if (watchdogRef.current) window.clearTimeout(watchdogRef.current);
-      watchdogRef.current = 0;
-    };
-  }, [src]);
-
-  /**
-   * A load event is not proof. A frame an engine refused to render also fires
-   * load, on an empty document. A blob URL is same-origin, so the document can
-   * be inspected: a body with no children means nothing was rendered. When the
-   * viewer is a plugin the document may be unreadable instead, which throws -
-   * and an unreadable document is not evidence of failure, so that case counts
-   * as success. The watchdog above is the real failure detector. This is the
-   * same refusal heuristic useLivePreview already uses on project frames.
-   */
-  const onDocLoad = useCallback(() => {
-    if (watchdogRef.current) {
-      window.clearTimeout(watchdogRef.current);
-      watchdogRef.current = 0;
-    }
-
-    let empty = false;
-    try {
-      const doc = docRef.current?.contentDocument ?? null;
-      if (doc) empty = !doc.body || doc.body.childElementCount === 0;
-    } catch {
-      empty = false;
-    }
-
-    setInline(empty ? "blank" : "live");
-  }, []);
-
-  /* --- the keyboard ------------------------------------------------------ */
-
-  /* Read inside the document listener so that arming the loupe does not tear
-     the listener down and build it again. Depending on `armed` directly would
-     re-run this effect on every arm - and if the focus call lived here it would
-     also take the keyboard away from the toolbar every time. */
-  const armedRef = useRef(false);
-  useEffect(() => {
-    armedRef.current = armed;
-  }, [armed]);
-
-  useEffect(() => {
-    const panel = panelRef.current;
+    const panel = lens.panelRef.current;
     if (!panel) return;
+    restore.current = document.activeElement as HTMLElement | null;
+    const focusable = () =>
+      Array.from(
+        panel.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => element.offsetParent !== null);
 
-    const selector =
-      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    focusable()[0]?.focus();
 
-    const onKeyDown = (event: KeyboardEvent) => {
+    const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        /* Escape closes the thing that is on top. */
-        if (armedRef.current) dismiss();
-        else onClose();
+        escape();
         return;
       }
-
-      if (armedRef.current && (event.key === "+" || event.key === "=")) {
-        event.preventDefault();
-        zoomBy(1);
-        return;
-      }
-
-      if (armedRef.current && (event.key === "-" || event.key === "_")) {
-        event.preventDefault();
-        zoomBy(-1);
-        return;
-      }
-
       if (event.key !== "Tab") return;
-
-      const items = Array.from(
-        panel.querySelectorAll<HTMLElement>(selector),
-      ).filter((item) => item.offsetParent !== null);
+      const items = focusable();
       if (items.length === 0) return;
-
       const first = items[0];
       const last = items[items.length - 1];
-      const activeEl = document.activeElement;
-
-      if (!event.shiftKey && activeEl === last) {
-        event.preventDefault();
-        first.focus();
-      } else if (event.shiftKey && activeEl === first) {
+      if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [dismiss, onClose, zoomBy]);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      restore.current?.focus?.();
+    };
+  }, [escape, lens.panelRef]);
 
-  /* Once, on open. Not on every arm. */
-  useEffect(() => {
-    panelRef.current?.querySelector<HTMLElement>(".cvv__close")?.focus();
-  }, []);
-
-  const pickLanguage = useCallback(
-    (next: Locale) => {
-      /* The document is about to be replaced, so the magnified copy of the old
-         one goes with it. */
-      dismiss();
-      setShown(next);
-    },
-    [dismiss],
-  );
-
-  const frameSrc = docSrc(src);
+  const save = useCallback(() => {
+    void downloadCv(file);
+  }, [file]);
 
   return createPortal(
     <div className="cvv" role="presentation">
-      <button
-        type="button"
-        className="cvv__scrim"
-        onClick={onClose}
-        aria-label={t.ui.close}
-        tabIndex={-1}
-      />
+      {/* A real button, so the scrim is reachable by keyboard and announced. */}
+      <button className="cvv__scrim" type="button" aria-label={t.ui.close} onClick={onClose} />
 
       <div
-        ref={panelRef}
-        className="cvv__panel"
-        role="dialog"
-        aria-modal="true"
         aria-label={t.ui.cvViewTitle}
-        data-lenis-prevent
+        aria-modal="true"
+        className="cvv__panel"
+        data-dragging={lens.dragging ? "true" : "false"}
+        ref={lens.panelRef}
+        role="dialog"
       >
-        <div className="cvv__bar">
-          <span className="cvv__crumb">{t.ui.cvViewTitle}</span>
+        <header className="cvv__bar">
+          <p className="cvv__crumb">
+            {t.ui.cvViewTitle}
+            <span className="cvv__pages ltr">{t.ui.cvViewPages}</span>
+          </p>
 
-          <span
-            className="cvv__seg"
-            role="group"
-            aria-label={t.ui.cvViewLangLabel}
-          >
-            {CV_ORDER.map((code) => (
+          {/* Switching document inside the window: the reader who opened the
+              Arabic file can read the English one without closing anything. */}
+          <div aria-label={t.ui.cvViewLangLabel} className="cvv__seg" role="group">
+            {CV_ORDER.map((locale: Locale) => (
               <button
-                key={code}
-                type="button"
+                aria-label={`${t.ui.cvViewRead} — ${cv[locale].code}`}
+                aria-pressed={locale === doc}
                 className="cvv__lang"
-                data-current={code === shown ? "true" : undefined}
-                aria-pressed={code === shown}
-                onClick={() => pickLanguage(code)}
+                key={locale}
+                onClick={() => onDoc(locale)}
+                type="button"
               >
-                <span className="ltr">{cv[code].code}</span>
+                <span className="ltr">{cv[locale].code}</span>
               </button>
             ))}
-          </span>
-
-          <span className="cvv__tools">
-            <button
-              type="button"
-              className="cvv__tool"
-              onClick={() => zoomBy(-1)}
-              disabled={!armed}
-              aria-label={t.ui.cvViewZoomOut}
-            >
-              −
-            </button>
-            <span className="cvv__zoom ltr" aria-hidden="true">
-              {loupe.zoom.toFixed(1)}×
-            </span>
-            <button
-              type="button"
-              className="cvv__tool"
-              onClick={() => zoomBy(1)}
-              disabled={!armed}
-              aria-label={t.ui.cvViewZoomIn}
-            >
-              +
-            </button>
-          </span>
-
-          <button
-            type="button"
-            className="cvv__close"
-            onClick={onClose}
-            aria-label={t.ui.close}
-          >
-            <Close size={16} />
-          </button>
-        </div>
-
-        <div className="cvv__stage">
-          <div
-            ref={loupe.paneRef}
-            className="cvv__pane"
-            data-state={state}
-            data-inline={inline}
-            data-dragging={loupe.dragging ? "true" : undefined}
-          >
-            {src !== "" ? (
-              <iframe
-                key={frameSrc}
-                ref={docRef}
-                className="cvv__doc"
-                src={frameSrc}
-                title={`${t.ui.cvViewTitle} — ${file.code}`}
-                loading="eager"
-                referrerPolicy="no-referrer"
-                onLoad={onDocLoad}
-              />
-            ) : null}
-
-            {waiting ? (
-              <span className="cvv__wait">
-                <LoaderDesktop tone="royal" label={t.ui.cvViewLoading} />
-              </span>
-            ) : null}
-
-            {inline === "blank" ? (
-              <div className="cvv__miss">
-                <p className="cvv__miss-text">{t.ui.cvViewFailed}</p>
-                <span className="cvv__miss-row">
-                  {src !== "" ? (
-                    <a
-                      className="cvv__link"
-                      href={src}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                    >
-                      {t.ui.cvViewNewTab}
-                      <ArrowUpRight size={14} />
-                    </a>
-                  ) : null}
-                  <button type="button" className="cvv__link" onClick={retry}>
-                    {t.ui.cvViewRetry}
-                  </button>
-                </span>
-              </div>
-            ) : null}
-
-            {/* The magnified copy. Identical src, identical hash, so it shows
-                the same page at the same fit - only bigger. */}
-            {loupe.mounted && src !== "" ? (
-              <span
-                ref={loupe.loupeRef}
-                className="cvv__loupe"
-                data-live={armed ? "true" : "false"}
-                aria-hidden="true"
-              >
-                <span className="cvv__loupe-doc">
-                  <iframe
-                    className="cvv__loupe-frame"
-                    src={frameSrc}
-                    title=""
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    scrolling="no"
-                    loading="eager"
-                    referrerPolicy="no-referrer"
-                  />
-                </span>
-                <span className="cvv__loupe-ring" />
-              </span>
-            ) : null}
           </div>
 
-          {available && src !== "" ? (
+          <div className="cvv__tools">
+            {/* The glass. Press it to put the lens down in the middle, or drag
+                straight out of it to place the lens where you want it. */}
             <button
+              aria-label={t.ui.cvViewLens}
+              aria-pressed={lens.open}
+              className="cvv__tool"
+              onClick={lens.onGripClick}
+              onPointerCancel={lens.onDragUp}
+              onPointerDown={lens.onGripDown}
+              onPointerMove={lens.onDragMove}
+              onPointerUp={lens.onDragUp}
+              title={t.ui.cvViewLensHint}
               type="button"
-              className="cvv__grip"
-              data-armed={armed ? "true" : undefined}
-              onPointerDown={loupe.onGripDown}
-              onPointerMove={loupe.onGripMove}
-              onPointerUp={loupe.onGripUp}
-              onPointerCancel={loupe.onGripUp}
-              onClick={loupe.onGripClick}
-              aria-label={t.ui.cvViewLoupe}
-              title={t.ui.cvViewLoupeHint}
             >
-              <Loupe size={18} />
+              <Lens size={16} />
             </button>
-          ) : null}
+
+            {lens.open ? (
+              <span className="cvv__zoom">
+                <button
+                  aria-label={t.ui.cvViewZoomOut}
+                  className="cvv__step"
+                  onClick={() => lens.zoomBy(-1)}
+                  type="button"
+                >
+                  −
+                </button>
+                <b className="ltr">{`${lens.zoom.toFixed(1)}×`}</b>
+                <button
+                  aria-label={t.ui.cvViewZoomIn}
+                  className="cvv__step"
+                  onClick={() => lens.zoomBy(1)}
+                  type="button"
+                >
+                  +
+                </button>
+              </span>
+            ) : null}
+
+            <button aria-label={t.ui.close} className="cvv__close" onClick={onClose} type="button">
+              <Close size={16} />
+            </button>
+          </div>
+        </header>
+
+        {/* The stage scrolls. This is the fix for "the box does not show the whole
+            page": the page is as tall as it needs to be and the reader moves
+            through it, instead of A4 being crushed into whatever height was
+            left over. */}
+        <div className="cvv__stage" ref={lens.stageRef} tabIndex={-1}>
+          <CvPaper foot={t.ui.cvViewSourceNote} key={doc} locale={doc} paperRef={lens.paperRef} />
         </div>
 
-        <div className="cvv__foot">
-          <span className="cvv__hint">
-            {state === "unverified" ? t.ui.cvViewUnverified : t.ui.cvViewHint}
-          </span>
+        {/* The lens lives in the panel, not in the stage, so it hovers over the
+            page like glass on paper instead of scrolling away with it. */}
+        {lens.open ? (
+          <div
+            aria-hidden="true"
+            className="cvv__lens"
+            onPointerCancel={lens.onDragUp}
+            onPointerDown={lens.onLensDown}
+            onPointerMove={lens.onDragMove}
+            onPointerUp={lens.onDragUp}
+            ref={lens.lensRef}
+          >
+            <div className="cvv__mirror" ref={lens.mirrorRef} />
+            <span className="cvv__ring" />
+            <span className="cvv__handle">
+              <Move size={14} />
+            </span>
+          </div>
+        ) : null}
 
-          {src !== "" ? (
-            <a
-              className="cvv__link"
-              href={src}
-              target="_blank"
-              rel="noreferrer noopener"
-            >
-              {t.ui.cvViewNewTab}
-              <ArrowUpRight size={14} />
-            </a>
-          ) : null}
-
-          {/* A real anchor to the same-origin file: the save path never depends
-              on anything this component did. */}
+        <footer className="cvv__foot">
+          <p className="cvv__hint">{lens.open ? t.ui.cvViewLensHint : t.ui.cvViewHint}</p>
           <a
             className="cvv__link"
             href={file.sources[0].url}
-            download={file.fileName}
-            hrefLang={file.locale}
+            hrefLang={doc}
+            rel="noreferrer noopener"
+            target="_blank"
             type="application/pdf"
           >
-            {t.ui.cvViewSave}
-            <Download size={14} />
+            {t.ui.cvViewNewTab}
+            <ArrowUpRight size={13} />
           </a>
-        </div>
+          <button className="cvv__link" onClick={save} type="button">
+            {t.ui.cvViewSave}
+            <Download size={13} />
+          </button>
+        </footer>
       </div>
     </div>,
     document.body,
   );
 }
+
+export default CvViewDesktop;

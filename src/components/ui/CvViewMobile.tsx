@@ -3,71 +3,47 @@ import { createPortal } from "react-dom";
 import { CV_ORDER, cv } from "../../data/cv";
 import type { Locale } from "../../data/translations";
 import { useLocale } from "../../context/LocaleContext";
-import { useCvDoc } from "../../hooks/useCvDoc";
-import { useLoupe } from "../../hooks/useLoupe";
-import { useWaiting } from "../../hooks/useWaiting";
-import {
-  CV_VIEW_TIMEOUT,
-  LOUPE_SIZE_MOBILE,
-  canLoupe,
-  docSrc,
-} from "../../lib/cvview";
+import { useLens } from "../../hooks/useLens";
+import { LENS_SIZE_MOBILE } from "../../lib/lens";
+import { downloadCv, nativeSaveCv } from "../../lib/cv";
 import { setScrollLocked } from "../../lib/scroll";
-import { ArrowUpRight, Close, Download, Loupe } from "./Icons";
-import LoaderMobile from "./LoaderMobile";
+import { ArrowUpRight, Close, Download, Lens, Move } from "./Icons";
+import { CvPaper } from "./CvPaper";
+import type { CvViewProps } from "./CvView";
 
 /**
- * CvViewMobile - the same file, read with a thumb.
+ * CvViewMobile - the reading sheet.
  *
- * What differs from the desktop window, and why:
- *   - a sheet, not a centred panel. A dialog that arrives from the bottom edge
- *     is where a phone puts a second surface, and it can be dragged away.
- *   - the grab handle from CaseSheet, with the same 90px threshold, the same
- *     pointer capture and the same 0.28s ease-out. That component's gesture,
- *     not a new one.
- *   - a smaller zoom box, and a grip the size of --tap.
- *   - the zoom buttons live in the footer, where a thumb reaches them, instead
- *     of in the bar.
- *   - no wheel handler is exercised: a finger has no wheel. The two footer
- *     buttons are the whole zoom control and they are full --tap targets.
+ * WHY A SEPARATE COMPONENT. A phone reader is a different interaction, not a
+ * narrower window: it comes up from the bottom, it is dismissed by dragging the
+ * grab bar down, its controls sit within thumb reach at the foot, and its lens is
+ * smaller because a finger covers more of a small screen. CaseSheet already made
+ * this choice; this file follows it.
  *
- * The magnified copy is a second browsing context on a phone, so it is created
- * on the first press of the grip, destroyed CV_VIEW_LINGER after the box is
- * dismissed, and never created at all on a device lib/quality.ts already marked
- * low or that reports less than 4 GB.
+ * WHY THE PAGE IS DRAWN AND NOT EMBEDDED. Mobile Safari and mobile Chrome will
+ * not render a PDF inside a frame at all - at best the first page appears, at
+ * worst nothing does, which is what the screenshots showed. A drawn page is
+ * immune, and it reflows to the width of the phone instead of shrinking A4 to
+ * illegibility.
+ *
+ * WHY THE LENS MATTERS MORE HERE. On a phone the CV is set small. The glass is
+ * how a recruiter reads a line without pinching the whole sheet and losing the
+ * place - so it is placed in the foot bar, one thumb away, and it can be dragged
+ * anywhere on the page.
  */
 
-type Props = {
-  locale: Locale;
-  onClose: () => void;
-};
+const DISMISS = 90;
+const SETTLE = 200;
 
-type Inline = "waiting" | "live" | "blank";
-
-export default function CvViewMobile({ locale, onClose }: Props) {
+export function CvViewMobile({ doc, onDoc, onClose }: CvViewProps) {
   const { t } = useLocale();
 
-  const [shown, setShown] = useState<Locale>(locale);
-  const file = cv[shown];
-
-  const { state, src, retry } = useCvDoc(shown);
-  const [inline, setInline] = useState<Inline>("waiting");
-  const waiting = useWaiting(
-    state === "loading" || (src !== "" && inline === "waiting"),
-  );
-
-  const panelRef = useRef<HTMLDivElement | null>(null);
-  const docRef = useRef<HTMLIFrameElement | null>(null);
-  const watchdogRef = useRef(0);
-
-  const [available] = useState(() => canLoupe());
-
-  const loupe = useLoupe<HTMLDivElement, HTMLSpanElement>({
-    size: LOUPE_SIZE_MOBILE,
-    enabled: available && src !== "",
-  });
-
-  const { armed, dismiss, zoomBy } = loupe;
+  const lens = useLens({ size: LENS_SIZE_MOBILE, docKey: doc });
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const start = useRef(0);
+  const offset = useRef(0);
+  const [leaving, setLeaving] = useState(false);
+  const file = cv[doc];
 
   useEffect(() => {
     setScrollLocked(true);
@@ -75,299 +51,194 @@ export default function CvViewMobile({ locale, onClose }: Props) {
   }, []);
 
   useEffect(() => {
-    setInline("waiting");
-    if (src === "") return;
-
-    watchdogRef.current = window.setTimeout(() => {
-      watchdogRef.current = 0;
-      setInline((current) => (current === "waiting" ? "blank" : current));
-    }, CV_VIEW_TIMEOUT);
-
-    return () => {
-      if (watchdogRef.current) window.clearTimeout(watchdogRef.current);
-      watchdogRef.current = 0;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      if (lens.open) {
+        lens.close();
+        return;
+      }
+      onClose();
     };
-  }, [src]);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [lens, onClose]);
 
-  const onDocLoad = useCallback(() => {
-    if (watchdogRef.current) {
-      window.clearTimeout(watchdogRef.current);
-      watchdogRef.current = 0;
-    }
-
-    let empty = false;
-    try {
-      const doc = docRef.current?.contentDocument ?? null;
-      if (doc) empty = !doc.body || doc.body.childElementCount === 0;
-    } catch {
-      empty = false;
-    }
-
-    setInline(empty ? "blank" : "live");
+  /* Drag to dismiss - the same numbers CaseSheet uses, so the two sheets in the
+     project feel like one gesture. Downwards only: an upward drag is scrolling. */
+  const onGrabDown = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId);
+    start.current = event.clientY;
+    offset.current = 0;
   }, []);
 
-  /* A hardware keyboard on a tablet still sends Escape. */
-  const armedRef = useRef(false);
-  useEffect(() => {
-    armedRef.current = armed;
-  }, [armed]);
+  const onGrabMove = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const sheet = sheetRef.current;
+    if (!sheet || !event.currentTarget.hasPointerCapture(event.pointerId)) return;
+    const delta = Math.max(0, event.clientY - start.current);
+    offset.current = delta;
+    sheet.style.transform = `translate3d(0, ${delta}px, 0)`;
+    sheet.style.transition = "none";
+  }, []);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      if (armedRef.current) dismiss();
-      else onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [dismiss, onClose]);
-
-  /* Drag the handle to dismiss. Transform while dragging, no layout reads - the
-     same effect as CaseSheet, on the same threshold. */
-  useEffect(() => {
-    const panel = panelRef.current;
-    if (!panel) return;
-    const grab = panel.querySelector<HTMLElement>(".cvv__grab");
-    if (!grab) return;
-
-    let startY = 0;
-    let offset = 0;
-    let dragging = false;
-
-    const onDown = (event: PointerEvent) => {
-      dragging = true;
-      startY = event.clientY;
-      offset = 0;
-      grab.setPointerCapture(event.pointerId);
-      panel.style.transition = "none";
-    };
-
-    const onMove = (event: PointerEvent) => {
-      if (!dragging) return;
-      offset = Math.max(0, event.clientY - startY);
-      panel.style.transform = `translate3d(0, ${offset}px, 0)`;
-    };
-
-    const onUp = (event: PointerEvent) => {
-      if (!dragging) return;
-      dragging = false;
-      grab.releasePointerCapture(event.pointerId);
-      panel.style.transition = "transform 0.28s ease-out";
-
-      if (offset > 90) {
-        panel.style.transform = "translate3d(0, 100%, 0)";
-        window.setTimeout(onClose, 200);
-      } else {
-        panel.style.transform = "translate3d(0, 0, 0)";
+  const onGrabUp = useCallback(
+    (event: React.PointerEvent<HTMLButtonElement>) => {
+      const sheet = sheetRef.current;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
       }
-    };
-
-    grab.addEventListener("pointerdown", onDown);
-    grab.addEventListener("pointermove", onMove);
-    grab.addEventListener("pointerup", onUp);
-    grab.addEventListener("pointercancel", onUp);
-
-    return () => {
-      grab.removeEventListener("pointerdown", onDown);
-      grab.removeEventListener("pointermove", onMove);
-      grab.removeEventListener("pointerup", onUp);
-      grab.removeEventListener("pointercancel", onUp);
-    };
-  }, [onClose]);
-
-  const pickLanguage = useCallback(
-    (next: Locale) => {
-      dismiss();
-      setShown(next);
+      if (!sheet) return;
+      sheet.style.transition = "";
+      if (offset.current > DISMISS) {
+        setLeaving(true);
+        sheet.style.transform = "translate3d(0, 100%, 0)";
+        window.setTimeout(onClose, SETTLE);
+        return;
+      }
+      sheet.style.transform = "";
     },
-    [dismiss],
+    [onClose],
   );
 
-  const frameSrc = docSrc(src);
+  const save = useCallback(() => {
+    try {
+      void downloadCv(file);
+    } catch {
+      nativeSaveCv(file);
+    }
+  }, [file]);
 
   return createPortal(
-    <div className="cvv" role="presentation">
-      <button
-        type="button"
-        className="cvv__scrim"
-        onClick={onClose}
-        aria-label={t.ui.close}
-        tabIndex={-1}
-      />
+    <div className="cvv cvv--sheet" data-leaving={leaving ? "true" : "false"} role="presentation">
+      <button className="cvv__scrim" type="button" aria-label={t.ui.close} onClick={onClose} />
 
       <div
-        ref={panelRef}
-        className="cvv__panel"
-        role="dialog"
-        aria-modal="true"
         aria-label={t.ui.cvViewTitle}
-        data-lenis-prevent
+        aria-modal="true"
+        className="cvv__panel"
+        data-dragging={lens.dragging ? "true" : "false"}
+        ref={(node) => {
+          sheetRef.current = node;
+          lens.panelRef.current = node;
+        }}
+        role="dialog"
       >
-        <div className="cvv__grab" aria-hidden="true">
-          <span />
-        </div>
+        <button
+          aria-label={t.ui.close}
+          className="cvv__grab"
+          onPointerCancel={onGrabUp}
+          onPointerDown={onGrabDown}
+          onPointerMove={onGrabMove}
+          onPointerUp={onGrabUp}
+          type="button"
+        >
+          <span className="cvv__grab-bar" />
+        </button>
 
-        <div className="cvv__bar">
-          <span className="cvv__crumb">{t.ui.cvViewTitle}</span>
-
-          <span
-            className="cvv__seg"
-            role="group"
-            aria-label={t.ui.cvViewLangLabel}
-          >
-            {CV_ORDER.map((code) => (
+        <header className="cvv__bar">
+          <p className="cvv__crumb">{t.ui.cvViewTitle}</p>
+          <div aria-label={t.ui.cvViewLangLabel} className="cvv__seg" role="group">
+            {CV_ORDER.map((locale: Locale) => (
               <button
-                key={code}
-                type="button"
+                aria-label={`${t.ui.cvViewRead} — ${cv[locale].code}`}
+                aria-pressed={locale === doc}
                 className="cvv__lang"
-                data-current={code === shown ? "true" : undefined}
-                aria-pressed={code === shown}
-                onClick={() => pickLanguage(code)}
+                key={locale}
+                onClick={() => onDoc(locale)}
+                type="button"
               >
-                <span className="ltr">{cv[code].code}</span>
+                <span className="ltr">{cv[locale].code}</span>
               </button>
             ))}
-          </span>
-
-          <button
-            type="button"
-            className="cvv__close"
-            onClick={onClose}
-            aria-label={t.ui.close}
-          >
+          </div>
+          <button aria-label={t.ui.close} className="cvv__close" onClick={onClose} type="button">
             <Close size={16} />
           </button>
+        </header>
+
+        <div className="cvv__stage" ref={lens.stageRef} tabIndex={-1}>
+          <CvPaper foot={t.ui.cvViewSourceNote} key={doc} locale={doc} paperRef={lens.paperRef} />
         </div>
 
-        <div className="cvv__stage">
+        {lens.open ? (
           <div
-            ref={loupe.paneRef}
-            className="cvv__pane"
-            data-state={state}
-            data-inline={inline}
-            data-dragging={loupe.dragging ? "true" : undefined}
+            aria-hidden="true"
+            className="cvv__lens"
+            onPointerCancel={lens.onDragUp}
+            onPointerDown={lens.onLensDown}
+            onPointerMove={lens.onDragMove}
+            onPointerUp={lens.onDragUp}
+            ref={lens.lensRef}
           >
-            {src !== "" ? (
-              <iframe
-                key={frameSrc}
-                ref={docRef}
-                className="cvv__doc"
-                src={frameSrc}
-                title={`${t.ui.cvViewTitle} — ${file.code}`}
-                loading="eager"
-                referrerPolicy="no-referrer"
-                onLoad={onDocLoad}
-              />
-            ) : null}
+            <div className="cvv__mirror" ref={lens.mirrorRef} />
+            <span className="cvv__ring" />
+            <span className="cvv__handle">
+              <Move size={13} />
+            </span>
+          </div>
+        ) : null}
 
-            {waiting ? (
-              <span className="cvv__wait">
-                <LoaderMobile tone="royal" label={t.ui.cvViewLoading} />
-              </span>
-            ) : null}
-
-            {inline === "blank" ? (
-              <div className="cvv__miss">
-                <p className="cvv__miss-text">{t.ui.cvViewFailed}</p>
-                <span className="cvv__miss-row">
-                  {src !== "" ? (
-                    <a
-                      className="cvv__link"
-                      href={src}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                    >
-                      {t.ui.cvViewNewTab}
-                      <ArrowUpRight size={14} />
-                    </a>
-                  ) : null}
-                  <button type="button" className="cvv__link" onClick={retry}>
-                    {t.ui.cvViewRetry}
-                  </button>
-                </span>
-              </div>
-            ) : null}
-
-            {loupe.mounted && src !== "" ? (
-              <span
-                ref={loupe.loupeRef}
-                className="cvv__loupe"
-                data-live={armed ? "true" : "false"}
-                aria-hidden="true"
-              >
-                <span className="cvv__loupe-doc">
-                  <iframe
-                    className="cvv__loupe-frame"
-                    src={frameSrc}
-                    title=""
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    scrolling="no"
-                    loading="eager"
-                    referrerPolicy="no-referrer"
-                  />
-                </span>
-                <span className="cvv__loupe-ring" />
+        {/* Tools at the foot: on a phone the top of the screen is out of reach. */}
+        <footer className="cvv__foot">
+          <div className="cvv__tools">
+            <button
+              aria-label={t.ui.cvViewLens}
+              aria-pressed={lens.open}
+              className="cvv__tool"
+              onClick={lens.onGripClick}
+              onPointerCancel={lens.onDragUp}
+              onPointerDown={lens.onGripDown}
+              onPointerMove={lens.onDragMove}
+              onPointerUp={lens.onDragUp}
+              type="button"
+            >
+              <Lens size={16} />
+            </button>
+            {lens.open ? (
+              <span className="cvv__zoom">
+                <button
+                  aria-label={t.ui.cvViewZoomOut}
+                  className="cvv__step"
+                  onClick={() => lens.zoomBy(-1)}
+                  type="button"
+                >
+                  −
+                </button>
+                <b className="ltr">{`${lens.zoom.toFixed(1)}×`}</b>
+                <button
+                  aria-label={t.ui.cvViewZoomIn}
+                  className="cvv__step"
+                  onClick={() => lens.zoomBy(1)}
+                  type="button"
+                >
+                  +
+                </button>
               </span>
             ) : null}
           </div>
 
-          {available && src !== "" ? (
-            <button
-              type="button"
-              className="cvv__grip"
-              data-armed={armed ? "true" : undefined}
-              onPointerDown={loupe.onGripDown}
-              onPointerMove={loupe.onGripMove}
-              onPointerUp={loupe.onGripUp}
-              onPointerCancel={loupe.onGripUp}
-              onClick={loupe.onGripClick}
-              aria-label={t.ui.cvViewLoupe}
-              title={t.ui.cvViewLoupeHint}
+          <div className="cvv__acts">
+            <a
+              className="cvv__link"
+              href={file.sources[0].url}
+              hrefLang={doc}
+              rel="noreferrer noopener"
+              target="_blank"
+              type="application/pdf"
             >
-              <Loupe size={18} />
+              {t.ui.cvViewNewTab}
+              <ArrowUpRight size={13} />
+            </a>
+            <button className="cvv__link" onClick={save} type="button">
+              {t.ui.cvViewSave}
+              <Download size={13} />
             </button>
-          ) : null}
-        </div>
-
-        <div className="cvv__foot">
-          <span className="cvv__tools">
-            <button
-              type="button"
-              className="cvv__tool"
-              onClick={() => zoomBy(-1)}
-              disabled={!armed}
-              aria-label={t.ui.cvViewZoomOut}
-            >
-              −
-            </button>
-            <span className="cvv__zoom ltr" aria-hidden="true">
-              {loupe.zoom.toFixed(1)}×
-            </span>
-            <button
-              type="button"
-              className="cvv__tool"
-              onClick={() => zoomBy(1)}
-              disabled={!armed}
-              aria-label={t.ui.cvViewZoomIn}
-            >
-              +
-            </button>
-          </span>
-
-          <a
-            className="cvv__link"
-            href={file.sources[0].url}
-            download={file.fileName}
-            hrefLang={file.locale}
-            type="application/pdf"
-          >
-            {t.ui.cvViewSave}
-            <Download size={14} />
-          </a>
-        </div>
+          </div>
+        </footer>
       </div>
     </div>,
     document.body,
   );
 }
+
+export default CvViewMobile;

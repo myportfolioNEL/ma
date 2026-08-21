@@ -82,6 +82,11 @@ export type TranslationBundle = {
     cvViewOpen: string;
     cvViewTitle: string;
     cvViewHint: string;
+    cvViewRead: string;
+    cvViewPages: string;
+    cvViewLens: string;
+    cvViewLensHint: string;
+    cvViewSourceNote: string;
     cvViewUnverified: string;
     cvViewLangLabel: string;
     cvViewLoading: string;
@@ -341,9 +346,14 @@ export const translations: Record<Locale, TranslationBundle> = {
       cvStatusSuspect: "Saved, but this copy is not the expected size",
       cvStatusFailed: "Download failed - handing over to the browser",
       cvSizeUnit: "KB",
-      cvViewOpen: "Read the CV without downloading it",
-      cvViewTitle: "Curriculum vitae",
-      cvViewHint: "Nothing is downloaded — the file is read in place",
+      cvViewOpen: "Read CV",
+      cvViewTitle: "Curriculum Vitae",
+      cvViewHint: "Drawn from structured data. PDF available below.",
+      cvViewRead: "Read",
+      cvViewPages: "1 page · structured",
+      cvViewLens: "Magnifier",
+      cvViewLensHint: "Drag to magnify details",
+      cvViewSourceNote: "DOM render · source: src/data/cvDoc.ts",
       cvViewUnverified: "This copy could not be checked against its expected size",
       cvViewLangLabel: "Language of the CV",
       cvViewLoading: "Opening the CV",
@@ -602,9 +612,14 @@ export const translations: Record<Locale, TranslationBundle> = {
       cvStatusSuspect: "Enregistré, mais cette copie n'a pas la taille prévue",
       cvStatusFailed: "Échec du téléchargement - le navigateur prend le relais",
       cvSizeUnit: "Ko",
-      cvViewOpen: "Lire le CV sans le télécharger",
-      cvViewTitle: "Curriculum vitæ",
-      cvViewHint: "Rien n'est téléchargé — le fichier est lu sur place",
+      cvViewOpen: "Lire le CV",
+      cvViewTitle: "Curriculum Vitæ",
+      cvViewHint: "Rendu depuis des données structurées. PDF disponible ci-dessous.",
+      cvViewRead: "Lire",
+      cvViewPages: "1 page · structurée",
+      cvViewLens: "Loupe",
+      cvViewLensHint: "Glisser pour agrandir",
+      cvViewSourceNote: "Rendu DOM · source: src/data/cvDoc.ts",
       cvViewUnverified: "Cette copie n'a pas pu être vérifiée face à sa taille prévue",
       cvViewLangLabel: "Langue du CV",
       cvViewLoading: "Ouverture du CV",
@@ -862,9 +877,14 @@ export const translations: Record<Locale, TranslationBundle> = {
       cvStatusSuspect: "حُفظ الملف، لكن حجم هذه النسخة غير متوقّع",
       cvStatusFailed: "تعذّر التنزيل - المتصفّح يتولّى الأمر",
       cvSizeUnit: "ك.ب",
-      cvViewOpen: "قراءة السّيرة الذّاتية دون تنزيلها",
-      cvViewTitle: "السّيرة الذّاتية",
-      cvViewHint: "لا شيء يُنزّل — الملفّ يُقرأ في مكانه",
+      cvViewOpen: "قراءة السيرة الذاتية",
+      cvViewTitle: "السيرة الذاتية",
+      cvViewHint: "مبنيّة من بيانات هيكلية. ملف PDF متاح بالأسفل.",
+      cvViewRead: "قراءة",
+      cvViewPages: "صفحة واحدة · مبنيّة",
+      cvViewLens: "المكبّرة",
+      cvViewLensHint: "اسحب لتكبير التفاصيل",
+      cvViewSourceNote: "رسم هيكلي · المصدر: src/data/cvDoc.ts",
       cvViewUnverified: "لم يتسنَّ التحقّق من حجم هذه النّسخة مقابل الحجم المتوقّع",
       cvViewLangLabel: "لغة السّيرة الذّاتية",
       cvViewLoading: "جارٍ فتح السّيرة الذّاتية",

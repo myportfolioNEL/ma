@@ -4553,36 +4553,173 @@ code {
 }
 
 /* ============================================================
-   CV reader - the eye in the plate, the window, the magnifier
+   CV reader - desktop
    ============================================================ */
 
-/* The head was two columns: mark, copy. It is three now. Declared here rather
-   than edited in place so the append stays an append. */
-.cv__head {
-  grid-template-columns: auto minmax(0, 1fr) auto;
+/* The rail: one plate, three download links, and three eyes in front of them. */
+.cv__seg {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto auto;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: var(--radius-pill);
+}
+
+.cv__opt {
+  grid-row: 1;
 }
 
 .cv__eye {
-  inline-size: 34px;
-  block-size: 34px;
+  grid-row: 2;
+  block-size: 24px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--gold-hair-soft);
+  border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
-  color: var(--text-dim);
+  color: var(--text-faint);
   cursor: pointer;
   transition:
-    color 0.22s var(--e-out),
-    border-color 0.22s var(--e-out),
-    background-color 0.22s var(--e-out);
+    color 0.2s var(--e-out),
+    background-color 0.2s var(--e-out);
 }
 
 .cv__eye:hover,
 .cv__eye:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent);
+  color: var(--text);
   background: var(--accent-soft);
+}
+
+/* --- the drawn document ----------------------------------------------- */
+
+.cvp {
+  --cvp-pad: clamp(var(--s-5), 5vw, var(--s-8));
+  inline-size: min(44rem, 100%);
+  padding: var(--cvp-pad);
+  background: var(--paper);
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-1);
+  color: var(--text);
+  line-height: var(--lh-body);
+  font-family: var(--font-sans);
+}
+
+.cvp__head {
+  padding-block-end: var(--s-5);
+  border-block-end: 1px solid var(--gold-hair-soft);
+  margin-block-end: var(--s-5);
+}
+
+.cvp__name {
+  margin: 0;
+  font: 600 var(--t-h2)/1.1 var(--font-sans);
+  letter-spacing: var(--ls-tight);
+}
+
+.cvp__role {
+  margin-block-start: var(--s-1);
+  font: 500 var(--t-mono)/1.4 var(--font-mono);
+  letter-spacing: var(--ls-mono);
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.cvp__contact {
+  margin-block-start: var(--s-1);
+  font-size: var(--t-small);
+  color: var(--text-faint);
+}
+
+.cvp__body {
+  display: grid;
+  gap: var(--s-5);
+}
+
+.cvp__sec {
+  margin: 0;
+  padding-block-end: var(--s-2);
+  border-block-end: 1px solid var(--line);
+  font: 600 0.76rem/1 var(--font-mono);
+  letter-spacing: var(--ls-mono);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.cvp__lead {
+  margin: 0;
+  font-size: var(--t-body);
+  color: var(--text-dim);
+}
+
+.cvp__terms {
+  display: grid;
+  gap: var(--s-3);
+}
+
+.cvp__pair {
+  display: grid;
+  grid-template-columns: minmax(6rem, 10rem) 1fr;
+  gap: var(--s-3);
+  align-items: baseline;
+}
+
+.cvp__term {
+  font: 600 var(--t-mono)/1.4 var(--font-mono);
+  letter-spacing: var(--ls-mono);
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.cvp__def {
+  margin: 0;
+  font-size: var(--t-body);
+}
+
+.cvp__entry {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.cvp__title {
+  margin: 0;
+  font-size: var(--t-body);
+  font-weight: 600;
+}
+
+.cvp__meta {
+  margin: 0;
+  font: 500 var(--t-mono)/1.4 var(--font-mono);
+  letter-spacing: var(--ls-mono);
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.cvp__list {
+  margin: 0;
+  padding-inline-start: 1.2em;
+  list-style: square;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.cvp__item {
+  font-size: var(--t-body);
+  color: var(--text-dim);
+}
+
+.cvp__foot {
+  margin-block-start: var(--s-6);
+  padding-block-start: var(--s-4);
+  border-block-start: 1px solid var(--line);
+  font: 500 var(--t-mono)/1.4 var(--font-mono);
+  letter-spacing: var(--ls-mono);
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: center;
 }
 
 /* --- the window ------------------------------------------------------- */
@@ -4621,6 +4758,10 @@ code {
   animation: cvv-rise 0.3s var(--e-out) both;
 }
 
+.cvv__panel[data-dragging="true"] {
+  user-select: none;
+}
+
 .cvv__bar {
   display: flex;
   align-items: center;
@@ -4632,18 +4773,21 @@ code {
 .cvv__crumb {
   flex: 1 1 auto;
   min-inline-size: 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--s-2);
   font: 500 0.72rem/1 var(--font-mono);
   letter-spacing: var(--ls-mono);
   text-transform: uppercase;
   color: var(--text-faint);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-/* The language switch inside the window. Three cells, same idea as the plate's
-   rail, without the glider - there is nothing to slide between here, because
-   the choice is immediate and the document reloads. */
+.cvv__pages {
+  color: var(--text-dim);
+}
+
 .cvv__seg {
   display: inline-flex;
   align-items: center;
@@ -4674,7 +4818,7 @@ code {
   background: var(--accent-soft);
 }
 
-.cvv__lang[data-current="true"] {
+.cvv__lang[aria-pressed="true"] {
   color: var(--paper);
   background: var(--text);
 }
@@ -4686,40 +4830,54 @@ code {
 }
 
 .cvv__tool {
-  inline-size: 26px;
-  block-size: 26px;
+  inline-size: 28px;
+  block-size: 28px;
   display: grid;
   place-items: center;
   border: 1px solid var(--gold-hair-soft);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--text-dim);
-  font: 500 var(--t-mono)/1 var(--font-mono);
   cursor: pointer;
   transition:
     color 0.2s var(--e-out),
     border-color 0.2s var(--e-out),
-    opacity 0.2s var(--e-out);
+    background-color 0.2s var(--e-out);
 }
 
-.cvv__tool:hover:not(:disabled),
-.cvv__tool:focus-visible:not(:disabled) {
+.cvv__tool:hover,
+.cvv__tool:focus-visible,
+.cvv__tool[aria-pressed="true"] {
   color: var(--accent);
   border-color: var(--accent);
-}
-
-/* Disabled until the magnifier is up: there is nothing to zoom before that. */
-.cvv__tool:disabled {
-  opacity: 0.38;
-  cursor: default;
+  background: var(--accent-soft);
 }
 
 .cvv__zoom {
-  min-inline-size: 2.6rem;
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font: 500 var(--t-mono)/1 var(--font-mono);
-  color: var(--text-faint);
+  color: var(--text-dim);
   font-variant-numeric: tabular-nums;
+}
+
+.cvv__step {
+  inline-size: 20px;
+  block-size: 20px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.cvv__step:hover,
+.cvv__step:focus-visible {
+  color: var(--text);
+  border-color: var(--text);
 }
 
 .cvv__close {
@@ -4745,197 +4903,83 @@ code {
   transform: rotate(90deg);
 }
 
-/* --- the page of the document ----------------------------------------- */
-
 .cvv__stage {
   position: relative;
   min-block-size: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: var(--s-4);
+  padding: var(--s-5);
   display: grid;
   place-items: start center;
 }
 
-/* A4. The ratio is declared rather than measured, so the pane has its final
-   height before the document has loaded a single byte - no reflow when the
-   frame arrives, and the magnifier's cached rect is right the first time. */
-.cvv__pane {
-  position: relative;
-  inline-size: 100%;
-  max-inline-size: 46rem;
-  aspect-ratio: 1 / 1.4142;
-  background: var(--paper);
-  border: 1px solid var(--gold-hair-soft);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  isolation: isolate;
-}
+/* --- the lens --------------------------------------------------------- */
 
-.cvv__doc {
-  position: absolute;
-  inset: 0;
-  inline-size: 100%;
-  block-size: 100%;
-  border: 0;
-  display: block;
-  opacity: 0;
-  transition: opacity 0.3s var(--e-out);
-}
-
-.cvv__pane[data-inline="live"] .cvv__doc {
-  opacity: 1;
-}
-
-/* While the grip is held, the document must not be the thing under the cursor:
-   pointer capture already routes the events, and this keeps the frame from
-   showing a text cursor or a selection halfway through a drag. */
-.cvv__pane[data-dragging="true"] .cvv__doc {
-  pointer-events: none;
-}
-
-.cvv__wait {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-}
-
-.cvv__miss {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  gap: var(--s-3);
-  padding: var(--s-6);
-  text-align: center;
-  background: var(--surface);
-}
-
-.cvv__miss-text {
-  margin: 0;
-  max-inline-size: 34ch;
-  font-size: var(--t-small);
-  line-height: var(--lh-body);
-  color: var(--text-dim);
-}
-
-.cvv__miss-row {
-  display: inline-flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--s-3);
-}
-
-/* --- the magnifier ---------------------------------------------------- */
-
-/* Five custom properties, written by useLoupe inside one requestAnimationFrame.
-   Declared here with defaults so the box has a valid geometry on the very first
-   paint, before any pointer event has been seen. */
-.cvv__loupe {
-  --lp-size: 264px;
-  --lp-x: 0px;
-  --lp-y: 0px;
-  --lp-tx: 0px;
-  --lp-ty: 0px;
-  --lp-z: 2.5;
-  --lp-w: 100%;
-  --lp-h: 100%;
-
+.cvv__lens {
   position: absolute;
   inset-block-start: 0;
   inset-inline-start: 0;
-  inline-size: var(--lp-size, 264px);
-  block-size: var(--lp-size, 264px);
+  inline-size: var(--lp-size, 260px);
+  block-size: var(--lp-size, 260px);
   translate: var(--lp-x, 0px) var(--lp-y, 0px);
-  border-radius: var(--radius-lg);
+  border-radius: 50%;
   overflow: hidden;
+  box-shadow:
+    0 0 0 1px rgba(var(--gold-rgb), 0.5),
+    0 18px 48px rgba(37, 5, 8, 0.35);
   background: var(--paper);
-  box-shadow: var(--elev-2);
+  cursor: grab;
+  touch-action: none;
   contain: paint;
   will-change: translate;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.18s var(--e-out);
   z-index: 2;
+  transition: opacity 0.18s var(--e-out);
 }
 
-.cvv__loupe[data-live="true"] {
-  opacity: 1;
+.cvv__lens[data-over="false"] {
+  opacity: 0.2;
 }
 
-/* The second copy of the document, scaled about its own origin and slid so that
-   the point under the grip lands in the middle of the box. Both numbers come
-   from loupeFrame(), which is the only piece of arithmetic in the feature - and
-   the only piece with a unit test. */
-.cvv__loupe-doc {
+.cvv__panel[data-dragging="true"] .cvv__lens {
+  cursor: grabbing;
+}
+
+.cvv__mirror {
   position: absolute;
   inset-block-start: 0;
   inset-inline-start: 0;
   inline-size: var(--lp-w, 100%);
-  block-size: var(--lp-h, 100%);
   transform-origin: 0 0;
   transform: translate3d(var(--lp-tx, 0px), var(--lp-ty, 0px), 0)
     scale(var(--lp-z, 2.5));
+  pointer-events: none;
   will-change: transform;
 }
 
-.cvv__loupe-frame {
-  inline-size: 100%;
-  block-size: 100%;
-  border: 0;
-  display: block;
-  pointer-events: none;
-}
-
-.cvv__loupe-ring {
+.cvv__ring {
   position: absolute;
   inset: 0;
-  border: 1px solid var(--line-strong);
-  border-radius: inherit;
+  border: 1px solid var(--gold-hair);
+  border-radius: 50%;
   pointer-events: none;
 }
 
-/* The grip. Corner of the stage, never over the middle of the page, and
-   touch-action: none so a drag is a drag and not a scroll. */
-.cvv__grip {
+.cvv__handle {
   position: absolute;
-  inset-block-end: var(--s-5);
-  inset-inline-end: var(--s-5);
-  inline-size: 40px;
-  block-size: 40px;
+  inset-block-end: 10px;
+  inset-inline-end: 10px;
+  inline-size: 26px;
+  block-size: 26px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--gold-hair);
-  border-radius: var(--radius-pill);
+  border: 1px solid var(--gold-hair-soft);
+  border-radius: 50%;
   background: var(--surface-glass);
-  backdrop-filter: blur(10px);
-  box-shadow: var(--elev-1);
-  color: var(--text-dim);
-  cursor: grab;
-  touch-action: none;
-  z-index: 3;
-  transition:
-    color 0.22s var(--e-out),
-    border-color 0.22s var(--e-out),
-    transform 0.22s var(--e-out);
+  color: var(--text-faint);
+  pointer-events: none;
 }
 
-.cvv__grip:hover,
-.cvv__grip:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent);
-  transform: translateY(-1px);
-}
-
-.cvv__grip[data-armed="true"] {
-  color: var(--accent);
-  border-color: var(--accent);
-  cursor: grabbing;
-}
-
-/* --- the footer ------------------------------------------------------- */
+/* --- the foot --------------------------------------------------------- */
 
 .cvv__foot {
   display: flex;
@@ -4948,8 +4992,9 @@ code {
 .cvv__hint {
   flex: 1 1 auto;
   min-inline-size: 0;
-  font-size: var(--t-mono);
-  line-height: var(--lh-body);
+  font: 500 var(--t-mono)/1.4 var(--font-mono);
+  letter-spacing: var(--ls-mono);
+  text-transform: uppercase;
   color: var(--text-faint);
 }
 
@@ -4995,44 +5040,18 @@ code {
   }
 }
 
-/* A device the quality pass already marked low pays for neither blur nor
-   shadow, and never gets a magnifier at all - canLoupe() reads the same flag. */
-[data-quality="low"] .cvv__scrim,
-[data-quality="low"] .cvv__panel,
-[data-quality="low"] .cvv__grip {
-  backdrop-filter: none;
-}
-
-[data-quality="low"] .cvv__panel {
-  background: var(--surface);
-  box-shadow: none;
-}
-
-/* Reduced motion removes the movement, never the function. The magnifier still
-   tracks the pointer, because that is the feature, not decoration. */
 @media (prefers-reduced-motion: reduce) {
   .cvv__scrim,
   .cvv__panel {
     animation: none;
   }
 
-  .cvv__doc,
-  .cvv__loupe,
-  .cvv__eye,
   .cv__eye,
   .cvv__lang,
   .cvv__tool,
   .cvv__close,
-  .cvv__grip,
   .cvv__link {
     transition: none;
-  }
-
-  .cvv__close:hover,
-  .cvv__close:focus-visible,
-  .cvv__grip:hover,
-  .cvv__grip:focus-visible {
-    transform: none;
   }
 }
 
