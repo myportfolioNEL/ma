@@ -64,10 +64,17 @@ export function CvViewDesktop({ locale, onClose }: Props) {
         ref={reader.panelRef}
         onKeyDown={reader.onKeyDown}
       >
+        {/* data-lenis-prevent is not decoration. Lenis is stopped while this
+            overlay is open, and a stopped Lenis cancels every wheel event whose
+            path does not contain this attribute - which cancels the native
+            scrolling of this box too. CaseStudy.tsx carries it for the same
+            reason. tabIndex makes the document reachable by keyboard. */}
         <div
           className="cvv__stage"
           ref={reader.stageRef}
           data-lens={reader.open ? "true" : "false"}
+          data-lenis-prevent
+          tabIndex={0}
           onPointerMove={reader.follow}
           onPointerLeave={reader.leave}
         >

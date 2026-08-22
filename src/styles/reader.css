@@ -1,0 +1,427 @@
+/* ==========================================================================
+   reader.css - THE CV READING WINDOW. One file, both builds.
+
+   WHY THIS FILE EXISTS AT ALL. The window's markup was rebuilt twice while its
+   stylesheet stayed behind in desktop.css and mobile.css, because both times
+   the rewrite arrived as a line-range patch against a 5,000-line file and both
+   times the patch did not land. The result shipped: v4 markup wearing v3 CSS.
+   .cvv__ctl had no rule anywhere, .cvv__fit had a rule and no element, the
+   glass could not be moved and the page's background stopped mid-document.
+
+   So the window now owns exactly one stylesheet. It is imported after the
+   build sheet in both builds, it is the only place .cvv* is styled, and
+   scripts/strip-cvv-css.mjs guarantees the old blocks are gone. A patch that
+   does not land is now visible as a file that does not exist.
+
+   THE THREE RULES THIS FILE IS BUILT ON.
+     1. ONE COLOUR. The panel, the stage, the sheet and the glass are all
+        var(--cv-sheet). There is no gradient behind the page and no border
+        around it, so there is no seam to see wherever the text happens to end.
+     2. NO TRACKS. The panel is position:relative and nothing else. The stage,
+        the glass and the two controls are all absolutely positioned inside it.
+        Nothing can be pushed out of a grid row, because there are no rows.
+     3. THE GLASS IS NOT IN THE WAY. Under a mouse it is pointer-events:none:
+        it follows the cursor, it never receives the cursor. Under a finger it
+        is a real target with touch-action:none and is dragged.
+
+   Colours are literal: --cv-sheet is the light page, --text is the dark ink.
+   Never --paper or --ink here; in this project those two are inverted aliases
+   (see the warning in tokens.css) and that is what shipped a black page.
+   ========================================================================== */
+
+/* --- the overlay ---------------------------------------------------------- */
+
+.cvv {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay, 70);
+  display: grid;
+  place-items: center;
+  padding: var(--s-4, 1rem);
+  animation: cvv-fade 180ms var(--e-out, ease-out) both;
+}
+
+.cvv__scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim, rgba(12, 10, 8, 0.55));
+  backdrop-filter: blur(var(--scrim-blur, 8px));
+}
+
+/* THE PANEL IS A CANVAS, NOT A LAYOUT. Every child is absolute. This is the
+   rule that makes it impossible for a control to be starved of space again. */
+.cvv__panel {
+  position: relative;
+  z-index: 1;
+  inline-size: min(72rem, calc(100vw - var(--s-5, 2rem) * 2));
+  block-size: min(94svh, 60rem);
+  overflow: hidden;
+  background: var(--cv-sheet, #fbf8f0);
+  border: 1px solid var(--gold-hair-soft, rgba(201, 162, 74, 0.24));
+  border-radius: var(--win-r, 16px);
+  box-shadow: var(--elev-panel, 0 40px 120px -40px rgba(37, 5, 8, 0.6));
+  animation: cvv-rise 220ms var(--e-out, ease-out) both;
+}
+
+/* --- the stage: the only thing in this window that scrolls ---------------- */
+
+/*
+  overflow-y:auto and nothing else is not enough on this site. A stopped Lenis
+  calls preventDefault() on every wheel event whose composed path holds no
+  [data-lenis-prevent], and a cancelled wheel event scrolls nothing at all -
+  not the page, not the box under the cursor. The attribute is on the element in
+  the two view components; this rule only has to make it scrollable.
+
+  display:block is deliberate. As display:flex the sheet became a flex item
+  with the default align-items:stretch, so inside a panel of definite height
+  its PAINTED BOX was exactly one window tall while its CONTENT was ~2,900px
+  tall. Everything past the box painted on the stage instead: that was the
+  two-tone page.
+*/
+.cvv__stage {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding: var(--s-5, 2rem) var(--s-4, 1rem);
+  background: var(--cv-sheet, #fbf8f0);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(23, 20, 15, 0.22) transparent;
+}
+
+/* The stage is focusable so that a keyboard can scroll the document. The
+   dialog frame is the focus indicator; nothing is drawn inside the page. */
+.cvv__stage:focus {
+  outline: none;
+}
+
+.cvv__stage::-webkit-scrollbar {
+  width: 12px;
+}
+
+.cvv__stage::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cvv__stage::-webkit-scrollbar-thumb {
+  background: rgba(23, 20, 15, 0.2);
+  background-clip: padding-box;
+  border: 4px solid transparent;
+  border-radius: var(--radius-pill, 999px);
+}
+
+.cvv__stage::-webkit-scrollbar-thumb:hover {
+  background: rgba(23, 20, 15, 0.34);
+  background-clip: padding-box;
+}
+
+/* While the glass is out, the glass IS the cursor. */
+@media (any-pointer: fine) {
+  .cvv__stage[data-lens="true"] {
+    cursor: none;
+  }
+}
+
+/* THE SHEET ON THE STAGE. Printed size, auto height, no frame, no shadow, and
+   the same colour as everything around it: the window reads as one continuous
+   page however long the document is. */
+.cvv__stage > .cvp {
+  display: block;
+  inline-size: min(100%, 52rem);
+  block-size: auto;
+  margin-inline: auto;
+  padding: var(--s-6, 3rem) var(--s-5, 2rem);
+  background: var(--cv-sheet, #fbf8f0);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+/* --- the glass ------------------------------------------------------------ */
+
+/*
+  A circle in PANEL coordinates, moved by two custom properties written from
+  useReader. top/left are physical on purpose: --lp-x and --lp-y are measured
+  from the panel's left and top edges, so they must not flip in RTL.
+*/
+.cvv__glass {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  inline-size: var(--lp-size, 260px);
+  block-size: var(--lp-size, 260px);
+  transform: translate3d(var(--lp-x, 0px), var(--lp-y, 0px), 0);
+  border-radius: 50%;
+  overflow: hidden;
+  isolation: isolate;
+  contain: paint;
+  background: var(--cv-sheet, #fbf8f0);
+  box-shadow:
+    0 0 0 1px rgba(var(--gold-rgb, 201, 162, 74), 0.5),
+    0 0 0 7px rgba(23, 20, 15, 0.05),
+    0 22px 48px -18px rgba(37, 5, 8, 0.42);
+  /* A mouse never touches the instrument: it wears it. Without this the circle
+     sits under the cursor, swallows the stage's pointermove and freezes. */
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* The hidden attribute must win over everything above. */
+.cvv__glass[hidden] {
+  display: none;
+}
+
+/* Off the page: step back rather than pretend to magnify the desk. */
+.cvv__glass[data-over="false"] {
+  opacity: 0.4;
+  box-shadow: 0 0 0 1px rgba(23, 20, 15, 0.12);
+}
+
+/* THE CLONE. Laid out at the sheet's LAYOUT width so every line breaks exactly
+   where it breaks underneath, then translated in unscaled pixels and scaled
+   about its top-left corner - which is what mirrorShift() computes. Individual
+   translate/scale would reverse the order; one transform list is correct. */
+.cvv__mirror {
+  position: absolute;
+  top: 0;
+  left: 0;
+  inline-size: var(--lp-w, 44rem);
+  transform: translate3d(var(--lp-tx, 0px), var(--lp-ty, 0px), 0)
+    scale(var(--lp-z, 2.5));
+  transform-origin: 0 0;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.cvv__mirror > .cvp {
+  position: static;
+  display: block;
+  inline-size: var(--lp-w, 44rem);
+  block-size: auto;
+  margin: 0;
+  padding: var(--s-6, 3rem) var(--s-5, 2rem);
+  background: var(--cv-sheet, #fbf8f0);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Glass, not glare: one soft diagonal wipe and a hairline rim. */
+.cvv__sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.42) 0%,
+    rgba(255, 255, 255, 0.08) 34%,
+    rgba(255, 255, 255, 0) 58%
+  );
+  pointer-events: none;
+}
+
+.cvv__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1px rgba(23, 20, 15, 0.16),
+    inset 0 0 22px -6px rgba(37, 5, 8, 0.28);
+  pointer-events: none;
+}
+
+/* --- the two controls, and there are only two ----------------------------- */
+
+.cvv__ctl {
+  position: absolute;
+  z-index: 3;
+  inset-block-start: var(--s-3, 0.75rem);
+  inset-inline-end: var(--s-3, 0.75rem);
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  gap: var(--s-2, 0.5rem);
+}
+
+.cvv__tool {
+  display: grid;
+  place-items: center;
+  inline-size: var(--ctl-h-md, 44px);
+  block-size: var(--ctl-h-md, 44px);
+  padding: 0;
+  color: var(--text, #17140f);
+  background: var(--surface-glass, rgba(239, 235, 225, 0.78));
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--gold-hair-soft, rgba(201, 162, 74, 0.24));
+  border-radius: 50%;
+  cursor: pointer;
+  transition:
+    background 160ms var(--e-out, ease-out),
+    color 160ms var(--e-out, ease-out),
+    transform 160ms var(--e-out, ease-out);
+}
+
+.cvv__tool:hover {
+  background: var(--surface-2, #e7e2d6);
+  transform: translateY(-1px);
+}
+
+.cvv__tool:focus-visible {
+  outline: 2px solid var(--accent, #e2431b);
+  outline-offset: 2px;
+}
+
+/* The magnifier is a toggle and says so by filling in. */
+.cvv__tool[aria-pressed="true"] {
+  color: var(--accent-ink, #fdf5ef);
+  background: var(--accent, #e2431b);
+  border-color: transparent;
+}
+
+.cvv__tool--close {
+  border-color: var(--line, rgba(23, 20, 15, 0.12));
+}
+
+/* --- the phone ------------------------------------------------------------ */
+
+@media (max-width: 860px), (hover: none) and (any-pointer: coarse) {
+  .cvv {
+    padding: 0;
+  }
+
+  .cvv__panel {
+    inline-size: 100vw;
+    block-size: 100svh;
+    border: 0;
+    border-radius: 0;
+    transform: translate3d(0, var(--cvv-drag, 0px), 0);
+    transition: transform 220ms var(--e-out, ease-out);
+  }
+
+  /* While a thumb is on the grab bar the sheet must track the finger exactly. */
+  .cvv__panel[data-pulling="true"] {
+    transition: none;
+  }
+
+  .cvv__stage {
+    padding: calc(var(--s-6, 3rem) + env(safe-area-inset-top)) var(--s-3, 0.75rem)
+      calc(var(--s-7, 4rem) + env(safe-area-inset-bottom));
+  }
+
+  .cvv__stage > .cvp {
+    inline-size: 100%;
+    padding: var(--s-4, 1rem) var(--s-3, 0.75rem);
+  }
+
+  .cvv__mirror > .cvp {
+    padding: var(--s-4, 1rem) var(--s-3, 0.75rem);
+  }
+
+  /* A finger has nothing to hover with, so the glass becomes a real target.
+     touch-action:none is what stops the drag from scrolling the stage. */
+  .cvv__glass {
+    pointer-events: auto;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .cvv__glass[data-dragging="true"] {
+    cursor: grabbing;
+  }
+
+  /* Controls go where a thumb is, not where a mouse is. */
+  .cvv__ctl {
+    inset-block-start: auto;
+    inset-block-end: calc(var(--s-4, 1rem) + env(safe-area-inset-bottom));
+    inset-inline: 0;
+    justify-content: center;
+    flex-direction: row;
+    gap: var(--s-3, 0.75rem);
+  }
+
+  .cvv__tool {
+    inline-size: var(--tap, 48px);
+    block-size: var(--tap, 48px);
+    box-shadow: 0 10px 26px -14px rgba(37, 5, 8, 0.45);
+  }
+
+  /* Drag down to dismiss: a bar, not a word. */
+  .cvv__grab {
+    position: absolute;
+    z-index: 3;
+    inset-block-start: calc(env(safe-area-inset-top) + 2px);
+    inset-inline: 0;
+    display: grid;
+    place-items: center;
+    block-size: 28px;
+    padding: 0;
+    background: none;
+    border: 0;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .cvv__grab-bar {
+    inline-size: 42px;
+    block-size: 4px;
+    background: rgba(23, 20, 15, 0.22);
+    border-radius: var(--radius-pill, 999px);
+  }
+
+  .cvv__panel[data-pulling="true"] .cvv__grab {
+    cursor: grabbing;
+  }
+}
+
+/* --- motion and quality budgets ------------------------------------------ */
+
+@keyframes cvv-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cvv-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 14px, 0) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+[data-quality="low"] .cvv__scrim {
+  backdrop-filter: none;
+}
+
+[data-quality="low"] .cvv__sheen {
+  display: none;
+}
+
+[data-quality="low"] .cvv__tool {
+  backdrop-filter: none;
+  background: var(--surface, #efebe1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cvv,
+  .cvv__panel {
+    animation: none;
+  }
+
+  .cvv__panel,
+  .cvv__tool {
+    transition: none;
+  }
+}

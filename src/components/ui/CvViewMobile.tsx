@@ -107,6 +107,8 @@ export function CvViewMobile({ locale, onClose }: Props) {
           className="cvv__stage"
           ref={reader.stageRef}
           data-lens={reader.open ? "true" : "false"}
+          data-lenis-prevent
+          tabIndex={0}
         >
           <CvPaper locale={locale} doc={CV_DOC[locale]} ref={reader.paperRef} />
         </div>

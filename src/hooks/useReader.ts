@@ -307,10 +307,37 @@ export function useReader({ size, docKey }: Options) {
 
   /* --------------------------------------------------------------- keys */
 
+  /** Move the stage. The panel holds focus, so the keys arrive here, not there. */
+  const scrollStage = useCallback((amount: number | "home" | "end") => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    if (amount === "home") stage.scrollTo({ top: 0 });
+    else if (amount === "end") stage.scrollTo({ top: stage.scrollHeight });
+    else stage.scrollBy({ top: amount });
+  }, []);
+
   /** Mounted on the panel by the view. Escape is the view's business. */
   const onKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      if (!openValue.current) return;
+      const stage = stageRef.current;
+      const page = Math.max(160, (stage?.clientHeight ?? 640) - 96);
+
+      /* Reading the document comes first, and it has to work with the glass
+         away - which is why none of this is behind `if (!open) return`. */
+      const paging = new Map<string, number | "home" | "end">([
+        ["PageDown", page],
+        ["PageUp", -page],
+        [" ", page],
+        ["Home", "home"],
+        ["End", "end"],
+      ]);
+      const jump = paging.get(event.key);
+      if (jump !== undefined) {
+        event.preventDefault();
+        scrollStage(jump);
+        return;
+      }
+
       const step: Record<string, [number, number]> = {
         ArrowLeft: [-1, 0],
         ArrowRight: [1, 0],
@@ -318,14 +345,23 @@ export function useReader({ size, docKey }: Options) {
         ArrowDown: [0, 1],
       };
       const move = step[event.key];
+
+      /* One key, the obvious meaning in both states: an arrow nudges the glass
+         while it is out, and scrolls the page while it is away. */
       if (move) {
         event.preventDefault();
+        if (!openValue.current) {
+          scrollStage(move[1] * GLASS_NUDGE * 3);
+          return;
+        }
         place({
           x: centre.current.x + move[0] * GLASS_NUDGE,
           y: centre.current.y + move[1] * GLASS_NUDGE,
         });
         return;
       }
+
+      if (!openValue.current) return;
       if (event.key === "+" || event.key === "=") {
         event.preventDefault();
         zoomBy(1);
@@ -334,7 +370,7 @@ export function useReader({ size, docKey }: Options) {
         zoomBy(-1);
       }
     },
-    [place, zoomBy],
+    [place, scrollStage, zoomBy],
   );
 
   /* ------------------------------------------------------------- effects */
@@ -381,18 +417,39 @@ export function useReader({ size, docKey }: Options) {
     return () => document.removeEventListener("selectionchange", onSelect);
   }, [echo, open]);
 
-  /* Ctrl or Command with the wheel magnifies; a plain wheel keeps scrolling. */
+  /*
+   * THE WHEEL. This is the effect that makes the window scroll at all, and the
+   * load-bearing line is stopPropagation, not preventDefault.
+   *
+   * Lenis listens for wheel on the window. Opening any overlay calls
+   * setScrollLocked(true), which calls engine.stop() (lib/scroll.ts), and a
+   * STOPPED Lenis does not ignore the wheel: it answers every wheel event it
+   * receives with preventDefault() unless the event's path contains a
+   * [data-lenis-prevent] element. A cancelled wheel event scrolls nothing at
+   * all - not the page, not the box under the cursor. That is why this window
+   * had a scrollbar that only worked when it was dragged by hand.
+   *
+   * Two independent guards, because one of them silently regressing is what
+   * cost the last round: the attribute on the stage in both views, and this
+   * listener, which stops the event before it can ever reach Lenis.
+   *
+   * It is NOT gated on `open`: the document must scroll whether or not the
+   * magnifier is out.
+   */
   useEffect(() => {
     const stage = stageRef.current;
-    if (!open || !stage) return;
+    if (!stage) return;
     const onWheel = (event: WheelEvent) => {
+      event.stopPropagation();
       if (!event.ctrlKey && !event.metaKey) return;
+      if (!openValue.current) return;
+      /* Pinch-zoom gesture: magnify the glass instead of the browser. */
       event.preventDefault();
       zoomBy(event.deltaY < 0 ? 1 : -1);
     };
     stage.addEventListener("wheel", onWheel, { passive: false });
     return () => stage.removeEventListener("wheel", onWheel);
-  }, [open, zoomBy]);
+  }, [zoomBy]);
 
   useEffect(
     () => () => {

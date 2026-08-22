@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import "../styles/mobile.css";
+import "../styles/reader.css";
 
 import Liquid from "../components/gl/Liquid";
 import Preloader from "../components/layout/Preloader";
