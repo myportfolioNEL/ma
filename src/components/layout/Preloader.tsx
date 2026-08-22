@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { profile } from "../../data/profile";
 import { EASE, gsap, prefersReducedMotion } from "../../lib/motion";
+import { readMemory, writeMemory } from "../../lib/memory";
 import Loader from "../ui/Loader";
 
 /**
@@ -19,8 +20,22 @@ type PreloaderProps = {
   onDone: () => void;
 };
 
+/** Session memory: an arrival happens once per visit, not once per render. */
+const INTRO_KEY = "intro.done";
+
+function introAlreadyPlayed(): boolean {
+  return readMemory<boolean>(INTRO_KEY, false, "session") === true;
+}
+
 export default function Preloader({ onDone }: PreloaderProps) {
-  const [visible, setVisible] = useState(() => !prefersReducedMotion());
+  /* A visitor returning from the CV window, from a project, from another tab
+     or through the back button has already watched this. Replaying it is the
+     loudest way a site can say "I have forgotten you" - and it also destroys
+     the restored scroll position, because the curtain adds html.is-loading and
+     html.is-loading is overflow:hidden (base.css). */
+  const [visible, setVisible] = useState(
+    () => !prefersReducedMotion() && !introAlreadyPlayed(),
+  );
 
   const rootRef = useRef<HTMLDivElement | null>(null);
   const fillRef = useRef<HTMLSpanElement | null>(null);
@@ -32,7 +47,7 @@ export default function Preloader({ onDone }: PreloaderProps) {
   doneRef.current = onDone;
 
   useEffect(() => {
-    if (prefersReducedMotion()) {
+    if (prefersReducedMotion() || introAlreadyPlayed()) {
       doneRef.current();
       return;
     }
@@ -55,6 +70,9 @@ export default function Preloader({ onDone }: PreloaderProps) {
     const tl = gsap.timeline({
       onComplete: () => {
         document.documentElement.classList.remove("is-loading");
+        /* Recorded only once the curtain has actually left, so an interrupted
+           first paint still gets its introduction on the next load. */
+        writeMemory(INTRO_KEY, true, "session");
         setVisible(false);
         doneRef.current();
       },

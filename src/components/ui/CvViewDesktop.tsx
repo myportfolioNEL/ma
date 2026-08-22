@@ -5,6 +5,7 @@ import { CV_DOC } from "../../data/cvDoc";
 import type { CvLocale } from "../../data/cv";
 import { useLocale } from "../../context/LocaleContext";
 import { GLASS_DESKTOP } from "../../lib/reader";
+import { useOverlayMemory } from "../../hooks/useOverlayMemory";
 import { useReader } from "../../hooks/useReader";
 
 type Props = {
@@ -31,6 +32,12 @@ export function CvViewDesktop({ locale, onClose }: Props) {
   const ui = t.ui;
   const closeRef = useRef<HTMLButtonElement | null>(null);
   const reader = useReader({ size: GLASS_DESKTOP, docKey: locale });
+
+  /* The stage is the scroller, and React hands it back as a brand-new element
+     every time the window opens. Without this the visitor is returned to the
+     first line of the CV however far down they had read. Keyed by language:
+     three documents, three reading positions. */
+  useOverlayMemory(reader.stageRef, { key: `cv:${locale}`, label: "reader" });
 
   /* Escape puts the glass away first, then the window: a reader who is
      magnifying something should not lose the whole document in one keystroke. */

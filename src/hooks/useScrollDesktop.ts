@@ -77,6 +77,11 @@ export function useScrollDesktop(): void {
       /* Duration is given here and only here: a jump to a section is a
          deliberate animation, unlike a wheel gesture. */
       scrollTo: (top: number) => lenis.scrollTo(top, { duration: 0.6 }),
+      /* Restoring a place is not an animation. `immediate` skips the easing -
+         an eased restore reads as the page falling rather than as the page
+         remembering - and `force` lets it through while Lenis is stopped,
+         which it is for the frame an overlay takes to close. */
+      jump: (top: number) => lenis.scrollTo(top, { immediate: true, force: true }),
       stop: () => lenis.stop(),
       start: () => lenis.start(),
       resize: () => lenis.resize(),

@@ -3,6 +3,7 @@ import Button from "../components/ui/Button";
 import { ArrowUpRight, Close } from "../components/ui/Icons";
 import LoaderDesktop from "../components/ui/LoaderDesktop";
 import { useLocale } from "../context/LocaleContext";
+import { useOverlayMemory } from "../hooks/useOverlayMemory";
 import { useWaiting } from "../hooks/useWaiting";
 import { imageStillLoading } from "../lib/waiting";
 import type { Project } from "../types";
@@ -20,6 +21,11 @@ export default function CaseStudy({ project, onClose }: Props) {
   const { t, localizeProject } = useLocale();
   const localized = localizeProject(project);
   const panelRef = useRef<HTMLDivElement | null>(null);
+
+  /* .case__panel is the scroller here - overflow-y:auto in desktop.css. A
+     reader half way down a case study who closes it and opens it again gets
+     the same half way, per project. */
+  useOverlayMemory(panelRef, { key: `case:${project.id}`, label: "case" });
 
   const [heroReady, setHeroReady] = useState(false);
   const waiting = useWaiting(!heroReady);

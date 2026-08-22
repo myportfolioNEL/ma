@@ -3,6 +3,7 @@ import Button from "../components/ui/Button";
 import { ArrowUpRight, Close } from "../components/ui/Icons";
 import LoaderMobile from "../components/ui/LoaderMobile";
 import { useLocale } from "../context/LocaleContext";
+import { useOverlayMemory } from "../hooks/useOverlayMemory";
 import { useWaiting } from "../hooks/useWaiting";
 import { imageStillLoading } from "../lib/waiting";
 import type { Project } from "../types";
@@ -20,6 +21,10 @@ export default function CaseSheet({ project, onClose }: Props) {
   const { t, localizeProject } = useLocale();
   const localized = localizeProject(project);
   const sheetRef = useRef<HTMLDivElement | null>(null);
+
+  /* .sheet is the scroller on the phone - mobile.css. Same key space as the
+     desktop overlay, so a project read on one build is remembered on both. */
+  useOverlayMemory(sheetRef, { key: `case:${project.id}`, label: "sheet" });
 
   const [heroReady, setHeroReady] = useState(false);
   const heroWaiting = useWaiting(!heroReady);

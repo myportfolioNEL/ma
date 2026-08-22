@@ -16,10 +16,14 @@ import Hero from "./Hero";
 import Rail from "./Rail";
 import Work from "./Work";
 
+import { useJourney } from "../hooks/useJourney";
 import { useReveal } from "../hooks/useReveal";
 import { useScrollDesktop } from "../hooks/useScrollDesktop";
-import { setScrollLocked } from "../lib/scroll";
+import { useScrollMemory } from "../hooks/useScrollMemory";
 import { useActiveSection } from "../hooks/useUi";
+import { useLocale } from "../context/LocaleContext";
+import { track } from "../lib/analytics";
+import { lockScroll, unlockScroll } from "../lib/scroll";
 import { projects } from "../data/projects";
 import type { Project } from "../types";
 
@@ -43,13 +47,20 @@ export default function AppDesktop() {
   const [openProject, setOpenProject] = useState<Project | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
 
+  const { locale } = useLocale();
+
   useScrollDesktop();
+  /* Reads the visitor's last place out of session memory and puts them back
+     on it, before anything else has a chance to scroll the page. */
+  useScrollMemory(SECTION_IDS);
   useReveal();
   const active = useActiveSection(SECTION_IDS);
+  useJourney({ sections: SECTION_IDS, build: "desktop", locale });
 
   const open = useCallback((project: Project, source: HTMLElement | null) => {
     returnFocus.current = source;
     setOpenProject(project);
+    track("project_open", { project: project.id, build: "desktop" });
   }, []);
 
   const close = useCallback(() => {
@@ -60,9 +71,18 @@ export default function AppDesktop() {
   }, []);
 
   /* One owner for the scroll lock: the overlay's existence, nothing else. */
+  /* Named owner. The old boolean form released the page lock whenever this
+     effect re-ran, even when the CV reader was the component holding it -
+     which unpinned the body under an open window and dropped the document to
+     the top. See lib/scroll.ts. This effect can only ever release its own
+     lock now. */
   useEffect(() => {
-    setScrollLocked(openProject !== null);
-    return () => setScrollLocked(false);
+    if (openProject === null) {
+      unlockScroll("case");
+      return;
+    }
+    lockScroll("case");
+    return () => unlockScroll("case");
   }, [openProject]);
 
   return (

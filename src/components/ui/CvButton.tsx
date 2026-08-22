@@ -4,8 +4,9 @@ import CvView from "./CvView";
 import { Check, Download, Eye } from "./Icons";
 import { cv, CV_ORDER, type CvLocale } from "../../data/cv";
 import { downloadCv, warmCv } from "../../lib/cv";
+import { track } from "../../lib/analytics";
+import { lockScroll, unlockScroll } from "../../lib/scroll";
 import { useLocale } from "../../context/LocaleContext";
-import { setScrollLocked } from "../../lib/scroll";
 
 type State = "idle" | "busy" | "done" | "failed";
 
@@ -44,10 +45,16 @@ export default function CvButton() {
     [],
   );
 
-  /* The reader is a modal: the page behind it must not scroll under it. */
+  /* The reader owns its own lock. Closing a case study can no longer unpin the
+     body while the reader is still open - that was the mechanism behind
+     "exit something and the site reopens from the beginning". */
   useEffect(() => {
-    setScrollLocked(reading !== null);
-    return () => setScrollLocked(false);
+    if (reading === null) {
+      unlockScroll("reader");
+      return;
+    }
+    lockScroll("reader");
+    return () => unlockScroll("reader");
   }, [reading]);
 
   const aria = useCallback(
@@ -61,13 +68,22 @@ export default function CvButton() {
       if (states[locale] === "busy") return;
       setStates((current) => ({ ...current, [locale]: "busy" }));
       setLive(ui.cvStatusBusy);
+      const startedAt = Date.now();
       try {
-        const { suspect } = await downloadCv(locale);
+        const { suspect, origin, bytes } = await downloadCv(locale);
         setStates((current) => ({ ...current, [locale]: "done" }));
         setLive(suspect ? ui.cvStatusSuspect : ui.cvStatusDone);
+        track("cv_download", {
+          file: locale,
+          origin,
+          bytes,
+          suspect,
+          ms: Date.now() - startedAt,
+        });
       } catch {
         setStates((current) => ({ ...current, [locale]: "failed" }));
         setLive(ui.cvStatusFailed);
+        track("cv_download", { file: locale, origin: "failed", ms: Date.now() - startedAt });
       }
       timers.current.push(
         window.setTimeout(() => {

@@ -1,6 +1,20 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <!-- Google's instruction for this property, followed exactly: paste the tag
+         on every page, immediately after the <head> element, one tag per page.
+         So it is the first thing in the head, unedited, and mounted from the
+         document rather than from React. -->
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-4LJMT1DZ69"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+
+gtag('config', 'G-4LJMT1DZ69');
+</script>
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#efebe1" />
@@ -28,6 +42,7 @@
       content="https://noureddinelmobaraki-web.github.io/nl-audio-cdn/Mee.webp"
     />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+
 
     <!-- Fonts: preconnect first, then one stylesheet request. display=swap so
          text is readable before the webfont lands. -->

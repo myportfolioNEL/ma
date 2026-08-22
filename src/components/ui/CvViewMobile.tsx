@@ -6,6 +6,7 @@ import { CV_DOC } from "../../data/cvDoc";
 import type { CvLocale } from "../../data/cv";
 import { useLocale } from "../../context/LocaleContext";
 import { GLASS_MOBILE } from "../../lib/reader";
+import { useOverlayMemory } from "../../hooks/useOverlayMemory";
 import { useReader } from "../../hooks/useReader";
 
 type Props = {
@@ -20,6 +21,10 @@ export function CvViewMobile({ locale, onClose }: Props) {
   const { t } = useLocale();
   const ui = t.ui;
   const reader = useReader({ size: GLASS_MOBILE, docKey: locale });
+
+  /* Same memory as the desktop window, same key space: a visitor who reads the
+     Arabic CV on a phone and reopens it comes back to the line they left. */
+  useOverlayMemory(reader.stageRef, { key: `cv:${locale}`, label: "reader" });
 
   const grabRef = useRef<HTMLButtonElement | null>(null);
   const startY = useRef(0);
